@@ -6,7 +6,7 @@
     "linkedin_cards_seen": 118,
     "external_ats_found": 24,
     "easy_apply_skipped": 71,
-    "requires_account_creation_skipped": 19,
+    "tier_2_captured": 19,
     "unresolved": 4
   },
   "jobs": [
@@ -28,7 +28,9 @@
       "notes": "",
       "discovered_at": "2026-09-01T14:01:03Z",
       "applied_at": null,
-      "confirmation_screenshot": null
+      "confirmation_screenshot": null,
+      "ats_tier": 1,
+      "quarantine_reason": null
     },
     {
       "id": "ashby-0f2c9d",
@@ -48,7 +50,9 @@
       "notes": "",
       "discovered_at": "2026-09-01T14:01:44Z",
       "applied_at": null,
-      "confirmation_screenshot": null
+      "confirmation_screenshot": null,
+      "ats_tier": 1,
+      "quarantine_reason": null
     },
     {
       "id": "skip-4319001233",
@@ -65,11 +69,13 @@
       "ats_job_id": "R-88213",
       "ats_confidence": "high",
       "requires_account": true,
-      "skip_reason": "Requires Account Creation",
-      "notes": "Workday — out of MVP scope.",
+      "skip_reason": "no tier-2 adapter for workday yet",
+      "notes": "Session-based. Captured and queued; see docs/ROADMAP.md.",
       "discovered_at": "2026-09-01T14:02:02Z",
       "applied_at": null,
-      "confirmation_screenshot": null
+      "confirmation_screenshot": null,
+      "ats_tier": 2,
+      "quarantine_reason": null
     }
   ]
 }
