@@ -45,7 +45,8 @@ purpose.
 | `data/jobs.json` | Generated queue + application history | 🔒 **never** |
 | `data/resume.pdf` | The user's resume | 🔒 **never** |
 | `data/screenshots/` | Review + confirmation captures | 🔒 never |
-| `scripts/validate.py` | Offline config/queue validation | ✅ |
+| `scripts/validate.py` | Offline config/queue validation + PII leak scan | ✅ |
+| `local/`, `scratch/`, `notes/` | Your space — runs, personal files, scratch | 🔒 **never** |
 | `docs/ATS_NOTES.md` | Per-platform form quirks | ✅ |
 | `docs/ROADMAP.md` | Open problems & wanted contributions | ✅ |
 | `docs/SAFETY.md` | The guarantees, stated plainly | ✅ |
@@ -192,6 +193,20 @@ they were looking. It is also easy to do by accident — copying a real row into
 the company name is changed. Examples must be fully synthetic.
 
 Aggregate distributions with no employer names and no personal dates are fine and useful.
+
+**Two mechanisms back this up, and they solve different halves of the problem:**
+
+- `local/`, `scratch/` and `notes/` are ignored **wholesale, with no negation rules**.
+  Unlike `data/` and `config/` — which carve out exceptions for tracked templates and
+  examples — nothing dropped in these can leak by accident. Put personal files there and
+  stop thinking about it.
+- `scripts/validate.py` cross-checks every **tracked** file against the identifying
+  fields of your own `config/bio.json` (name, contact, address, social links, school,
+  employers) and fails if any appear. A `.gitignore` cannot catch a leak that is *typed
+  into a public file*; this can. It prints the field name and the file, never the value.
+
+The second is the one that matters. The leak that prompted this rule was content, not a
+misplaced file — every private path was correctly ignored the whole time.
 
 ### 5.5 Documentation
 
