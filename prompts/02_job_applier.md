@@ -114,13 +114,27 @@ written a readback for.
 
 ## 2. The per-job loop
 
-Process jobs in queue order. For each job with `status: "pending"` whose `ats` appears
+Process jobs in queue order. Route on **`ats` (the underlying vendor), never on
+`ats_host`** — a white-label domain like `careers.acme.com` wrapping Greenhouse is
+applyable by the tier-1 Greenhouse adapter, and routing on the host would wrongly skip it.
+
+Before anything else, check `apply_shape`:
+
+| `apply_shape` | Action |
+|---|---|
+| `form` | Normal processing, below. |
+| `conversational` | **Skip.** `"skip_reason": "conversational apply only"`. Never open a chat-to-apply flow — see §6.1b. |
+| `unknown` | Skip: `"skip_reason": "apply shape unresolved"`. A human looks once. |
+
+Then, for each job with `status: "pending"`, `apply_shape: "form"`, and `ats` appearing
 in `agent_policy.ats_support` — `tier_1_no_login`, or `tier_2_session_based` when the
 user has opted that adapter in:
 
 ```
 1. OPEN     → new tab at apply_url; wait for load; screenshot
 2. VERIFY   → title & company on the page match the record  (mismatch → §6.5)
+            → on a white-label host, confirm the vendor matches `ats` before
+              using that vendor's field mappings; if not, quarantine
 3. TRIAGE   → posting closed? login wall? captcha?          (→ §6)
 4. MAP      → walk every field; resolve from bio.json       (§3, §4)
 5. UPLOAD   → attach resume                                 (§5)
@@ -319,6 +333,16 @@ and re-run when you want to continue; the queue picks up where it left off.
 Unattended runs end here rather than sitting idle. If the user is present and solves
 it, re-verify every field with a fresh screenshot before resuming — the page may have
 reloaded and cleared the form.
+
+### 6.1b Conversational apply appears mid-flow
+
+If a chat widget takes over an application you have already opened — the form is
+replaced by, or redirects into, an assistant conversation — **stop and quarantine**
+(`conversational apply appeared mid-flow`). Do not answer a single chatbot prompt.
+
+A dialogue is not a form: there is no field list to read back, no stable mapping from
+`bio.json`, and no way to show the user what will be sent before it is sent. Every
+safeguard in §7 assumes a form. Answering "just the easy ones" forfeits all of them.
 
 ### 6.2 Sign-in wall — tier 2
 
@@ -562,6 +586,7 @@ count of what worked.
 Attempted        : 47
 Submitted        : 38   (greenhouse 19 · ashby 11 · lever 6 · bamboohr 2)
 No adapter yet   : 5    (Workday 3 · iCIMS 2)  — captured, not errors
+Conversational   : 2    chat-only postings, no form offered
 Failed           : 1    (posting closed mid-run)
 
 ⚠ QUARANTINED — 3, none submitted, all need one thing from you:
