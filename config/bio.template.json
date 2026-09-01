@@ -1,0 +1,287 @@
+{
+  "$schema": "./bio.schema.json",
+  "_README": [
+    "Copy this file to config/bio.json and replace every value with your own.",
+    "config/bio.json is hard-blocked by .gitignore and must never be committed.",
+    "Any field you leave as null, \"\", or the literal string \"ASK_ME\" will cause",
+    "the applier agent to STOP and ask you before it types anything into a form.",
+    "Never invent an answer that is not in this file. That rule is absolute."
+  ],
+  "schema_version": "1.0.0",
+
+  "identity": {
+    "first_name": "Jordan",
+    "middle_name": "",
+    "last_name": "Rivera",
+    "preferred_name": "Jordan",
+    "pronouns": "PREFER_NOT_TO_SAY",
+    "email": "jordan.rivera.example@gmail.com",
+    "phone": "+1 555 013 4477",
+    "phone_country_code": "+1",
+    "date_of_birth": "ASK_ME",
+    "headline": "Computer Science student | Backend & distributed systems"
+  },
+
+  "location": {
+    "street_address": "1200 Example Ave, Apt 4B",
+    "city": "Austin",
+    "state": "TX",
+    "state_full": "Texas",
+    "postal_code": "78701",
+    "country": "United States",
+    "country_code": "US",
+    "timezone": "America/Chicago",
+    "willing_to_relocate": true,
+    "relocation_notes": "Open to relocation anywhere in the US for the internship term.",
+    "preferred_locations": ["New York, NY", "Seattle, WA", "Austin, TX", "Remote (US)"],
+    "remote_preference": "HYBRID_OR_ONSITE"
+  },
+
+  "social_links": {
+    "linkedin": "https://www.linkedin.com/in/example-profile",
+    "github": "https://github.com/example-user",
+    "portfolio": "https://example-portfolio.vercel.app",
+    "personal_website": "https://example.dev",
+    "twitter_x": "",
+    "devpost": "",
+    "google_scholar": "",
+    "stackoverflow": "",
+    "other": []
+  },
+
+  "education": [
+    {
+      "institution": "Example State University",
+      "degree": "Bachelor of Science",
+      "field_of_study": "Computer Science",
+      "start_date": "2024-08",
+      "end_date": "2028-05",
+      "expected_graduation": "May 2028",
+      "currently_enrolled": true,
+      "gpa": "4.00",
+      "gpa_scale": "4.00",
+      "disclose_gpa": true,
+      "location": "Example City, TX",
+      "coursework": ["Data Structures", "Algorithms", "Operating Systems", "Databases"],
+      "honors": ["Dean's List"]
+    }
+  ],
+
+  "experience": [
+    {
+      "company": "Example Technologies",
+      "title": "Software Engineer Intern",
+      "employment_type": "INTERNSHIP",
+      "start_date": "2025-05",
+      "end_date": "2025-08",
+      "current": false,
+      "location": "Round Rock, TX",
+      "summary": "Built an internal service that reduced manual triage time for the QA org."
+    }
+  ],
+
+  "documents": {
+    "resume_path": "data/resume.pdf",
+    "resume_filename_override": "Jordan_Rivera_Resume.pdf",
+    "cover_letter_path": "",
+    "cover_letter_mode": "SKIP_UNLESS_REQUIRED",
+    "transcript_path": "",
+    "portfolio_pdf_path": "",
+    "writing_sample_path": ""
+  },
+
+  "work_authorization": {
+    "authorized_to_work_in_us": true,
+    "will_require_sponsorship_now_or_future": false,
+    "visa_status": "US_CITIZEN",
+    "visa_status_notes": "One of: US_CITIZEN | PERMANENT_RESIDENT | F1_OPT | F1_CPT | H1B | TN | OTHER | ASK_ME",
+    "requires_h1b_sponsorship": false,
+    "authorized_countries": ["United States"],
+    "security_clearance": "NONE",
+    "export_control_us_person": true,
+    "age_18_or_older": true,
+    "can_provide_i9_documents": true,
+    "willing_to_complete_background_check": true,
+    "willing_to_complete_drug_test": true
+  },
+
+  "compensation": {
+    "currency": "USD",
+    "expected_hourly_rate": 45,
+    "expected_hourly_rate_min": 40,
+    "expected_hourly_rate_max": 60,
+    "expected_annual_salary": 120000,
+    "expected_annual_salary_min": 110000,
+    "expected_annual_salary_max": 140000,
+    "salary_answer_text": "Open / negotiable based on the role and location.",
+    "prefer_not_to_disclose_current_compensation": true,
+    "notes": "If a field is a free-text box, prefer salary_answer_text. If it demands a number, use the *_min value."
+  },
+
+  "availability": {
+    "earliest_start_date": "2027-05-17",
+    "latest_end_date": "2027-08-13",
+    "target_term": "Summer 2027",
+    "hours_per_week": 40,
+    "notice_period": "None",
+    "graduation_constraint_notes": "Available for the full 12-week summer term."
+  },
+
+  "screening_questions": {
+    "_README": [
+      "Keys are matched loosely (case/punctuation-insensitive substring match) against",
+      "the ATS question label. Add your own keys freely — the agent reads this map first",
+      "and only escalates to you when no key matches."
+    ],
+    "how_did_you_hear_about_us": "LinkedIn",
+    "why_do_you_want_to_work_here": "ASK_ME",
+    "are_you_a_current_student": "Yes",
+    "expected_graduation_date": "May 2028",
+    "are_you_legally_authorized_to_work": "Yes",
+    "will_you_now_or_in_the_future_require_sponsorship": "No",
+    "have_you_previously_worked_for_this_company": "No",
+    "do_you_have_any_relatives_employed_here": "No",
+    "were_you_referred": "No",
+    "referral_name": "",
+    "are_you_at_least_18": "Yes",
+    "willing_to_relocate": "Yes",
+    "willing_to_work_onsite": "Yes",
+    "preferred_office_location": "No preference",
+    "years_of_experience_python": "3",
+    "years_of_experience_java": "2",
+    "years_of_experience_javascript": "3",
+    "years_of_experience_sql": "2",
+    "notice_period": "None",
+    "have_you_been_convicted_of_a_felony": "ASK_ME",
+    "government_or_public_official": "No",
+    "non_compete_or_restrictive_covenant": "No",
+    "acknowledge_terms_and_privacy_policy": "Yes",
+    "consent_to_data_processing": "Yes"
+  },
+
+  "voluntary_disclosures": {
+    "_README": [
+      "US EEO / demographic questions. These are OPTIONAL by law.",
+      "The default for every field is PREFER_NOT_TO_SAY, and the agent must never",
+      "substitute a different value on your behalf. Change them only if you want to."
+    ],
+    "gender": "PREFER_NOT_TO_SAY",
+    "race_ethnicity": "PREFER_NOT_TO_SAY",
+    "hispanic_or_latino": "PREFER_NOT_TO_SAY",
+    "veteran_status": "PREFER_NOT_TO_SAY",
+    "disability_status": "PREFER_NOT_TO_SAY",
+    "lgbtq_status": "PREFER_NOT_TO_SAY"
+  },
+
+  "references": {
+    "provide_on_request": true,
+    "contacts": []
+  },
+
+  "agent_policy": {
+    "_README": [
+      "Runtime guardrails. The agent obeys this file over any prompt file.",
+      "autonomy_level sets how much the agent decides alone.",
+      "escalation.mode sets what happens when it cannot decide — and at",
+      "QUARANTINE_AND_CONTINUE the answer is never 'stop and ask the human'.",
+      "fact_integrity is the one thing that survives every level."
+    ],
+
+    "autonomy_level": "BATCH_REVIEW",
+    "_autonomy_levels": {
+      "SUPERVISED": "Approve each application one at a time. Use on an ATS you have never watched it handle.",
+      "BATCH_REVIEW": "Agent fills the whole batch autonomously, then presents ONE review sheet you approve per-row. Safe default for a new clone.",
+      "TRUSTED_BATCH": "Like BATCH_REVIEW, but auto-approves rows where every field resolved cleanly. Only flagged rows reach you.",
+      "AUTOPILOT": "Submits clean rows unattended. Never blocks the run to ask a question. Anything undecidable is quarantined and waits for you in the audit sheet afterward."
+    },
+
+    "escalation": {
+      "_README": [
+        "What the agent does when it hits something it cannot resolve.",
+        "QUARANTINE_AND_CONTINUE is the high-volume mode: set the job aside,",
+        "keep working the queue, hand over the pile at the end. The run never blocks."
+      ],
+      "mode": "QUARANTINE_AND_CONTINUE",
+      "_modes": {
+        "BLOCK_AND_ASK": "Stop, ask, wait. Lowest throughput, highest oversight.",
+        "QUARANTINE_AND_CONTINUE": "Never interrupt. Park the job, continue, report at the end."
+      },
+      "quarantine_path": "data/quarantine/<run-id>.md",
+      "max_quarantined_before_abort": 15,
+      "_max_quarantined_note": "A high quarantine rate means a systemic problem (bad config, ATS redesign). Abort rather than burn the queue.",
+
+      "hard_stop_only_for": [
+        "CAPTCHA or bot verification",
+        "credential entry or account-creation wall",
+        "request for SSN, government ID, or payment information",
+        "rate-limit or account warning from the platform",
+        "config/bio.json unreadable, or the resume file missing"
+      ]
+    },
+
+    "fact_integrity": {
+      "_README": [
+        "This survives every autonomy level and is what makes unattended",
+        "submission defensible: nothing is asserted to an employer that you",
+        "did not state. The agent may write prose; it may not invent facts."
+      ],
+      "never_fabricate_a_fact": true,
+      "quarantine_row_if_required_fact_missing": true,
+      "quarantine_row_on_legal_attestation_not_in_config": true,
+      "autosubmit_agent_drafted_prose": true,
+      "_drafted_prose_note": "Set false to route drafted cover letters and open-ended answers to the audit sheet instead of submitting them unattended.",
+      "voluntary_disclosures_never_substituted": true
+    },
+
+    "post_run_audit": {
+      "_README": "At AUTOPILOT this replaces the review gate. Written for every run, always.",
+      "audit_sheet_path": "data/review/<run-id>.md",
+      "record_full_readback_for_every_submission": true,
+      "screenshot_every_submission": true,
+      "screenshot_before_and_after_submit": true,
+      "flag_rows_with_drafted_prose": true,
+      "flag_rows_with_substituted_values": true
+    },
+
+    "autonomous_recovery": {
+      "_README": "Fixed silently, without asking. All reversible — nothing here submits.",
+      "retry_failed_field_input": 3,
+      "reorder_queue_by_deadline": true,
+      "self_heal_layout_drift": true,
+      "max_drift_reinterpretations_per_page": 3,
+      "resolve_ambiguous_selects": true,
+      "infer_optional_fields_from_resume": true,
+      "auto_expand_search_when_thin": true,
+      "auto_dedupe_and_reclassify": true,
+      "draft_cover_letter_when_required": true,
+      "draft_open_ended_answers": true,
+      "continue_run_after_individual_failure": true
+    },
+
+    "batch": {
+      "batch_size": 12,
+      "auto_approve_requires": [
+        "all required fields resolved directly from bio.json",
+        "no ASK_ME field encountered",
+        "no agent-drafted free text",
+        "resume upload visually confirmed",
+        "company and title matched the jobs.json record exactly"
+      ]
+    },
+
+    "hard_boundaries": {
+      "_README": "Out of scope at every autonomy level, permanently. Not autonomy settings.",
+      "solve_or_bypass_captcha": false,
+      "enter_credentials_or_create_accounts": false,
+      "supply_ssn_government_id_or_payment_info": false,
+      "evade_rate_limits": false,
+      "apply_via_linkedin_easy_apply": false,
+      "apply_where_account_creation_required": false
+    },
+
+    "max_applications_per_run": 60,
+    "min_seconds_between_applications": 8,
+    "allowed_ats": ["greenhouse", "ashby", "lever", "bamboohr"],
+    "dry_run": false
+  }
+}

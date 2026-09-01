@@ -1,0 +1,94 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  linkedin-claude-connector — .gitignore
+#
+#  PRIVACY IS A HARD REQUIREMENT OF THIS PROJECT.
+#  The three paths in the block below contain personally identifiable
+#  information (PII) and MUST NEVER be committed. Do not remove these rules.
+#  Do not add `-f` / `--force` overrides for them. If you need to share an
+#  example, edit the *.template.json / *.example.json files instead.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# === HARD-BLOCKED PII (never commit) ==========================================
+config/bio.json
+data/resume.pdf
+data/jobs.json
+
+# Defense in depth: block the same files no matter where they end up,
+# and block sibling variants people commonly create by hand.
+**/bio.json
+**/resume.pdf
+**/jobs.json
+config/bio.*.json
+config/search.json
+!config/bio.template.json
+!config/search.template.json
+data/resume*
+!data/resume.template.md
+!data/.gitkeep
+data/cover_letters/
+data/applications/
+data/screenshots/
+data/review/
+data/quarantine/
+data/runs/
+data/*.json
+!data/jobs.example.json
+!data/*.template.json
+
+# Any personal document dropped into the repo by mistake
+*.docx
+*.doc
+*.pdf
+!docs/**/*.pdf
+
+# === Secrets / credentials ====================================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+credentials.json
+secrets.json
+cookies.json
+storage_state.json
+auth.json
+
+# === Logs / run artifacts =====================================================
+logs/
+*.log
+skipped.json
+failures.json
+
+# === Python ===================================================================
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# === Node =====================================================================
+node_modules/
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+dist/
+build/
+.cache/
+
+# === Editors / OS =============================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*~
+
+# === Claude local state =======================================================
+.claude/settings.local.json
+.claude/local/
