@@ -33,8 +33,11 @@
    run.** Unattended submission is defensible precisely because nothing goes to an
    employer that the user did not state. A row missing a required fact is quarantined,
    never guessed and never sent.
-3. **Never create an account, never log in, never enter a password.** If a page asks,
-   the job is out of scope — mark it and move on (§6.2).
+3. **Never create an account, never log in, never enter a password.** This is about
+   *you*, not about which sites are supported. You may work inside a session the user
+   already established — that is how LinkedIn works, and how tier-2 platforms work
+   (§6.2). You may never establish one. A sign-in page is a quarantine, never an
+   attempt.
 4. **Never answer voluntary EEO / demographic questions with anything other than what
    `voluntary_disclosures` says.** The default is "Prefer not to say" and you do not
    change it to be helpful.
@@ -61,7 +64,7 @@ with a specific message — do not partially start a run.
 | No `ASK_ME` / empty values in fields you will need | Ask the user for each, up front, in one batch. Do not discover them mid-form. |
 | Resume file exists at `documents.resume_path` | Default `data/resume.pdf`. If missing → halt. |
 | `data/jobs.json` exists with ≥1 `status: "pending"` job | If not → "Run `prompts/01_job_grabber.md` first." |
-| `agent_policy` loaded | `max_applications_per_run`, `dry_run`, `allowed_ats` |
+| `agent_policy` loaded | `autonomy_level`, `escalation.mode`, `ats_support`, `max_applications_per_run`, `dry_run` |
 
 Print the plan and get a go-ahead **before the first navigation**:
 
@@ -69,7 +72,8 @@ Print the plan and get a go-ahead **before the first navigation**:
 Preflight OK.
   Profile      : Jordan Rivera · jordan.rivera.example@gmail.com
   Resume       : data/resume.pdf (184 KB, modified 2026-08-30)
-  Queue        : 24 pending → 18 in allowlist (greenhouse 9 · ashby 5 · lever 3 · bamboohr 1)
+  Queue        : 24 pending → 18 applicable (greenhouse 9 · ashby 5 · lever 3 · bamboohr 1)
+                 6 tier-2 (Workday 4 · iCIMS 2) — no adapter enabled, will skip
   This run     : 10 max, ~20s spacing
   Submit policy: manual confirmation required for every application
 Ready to start? (yes / dry-run / cancel)
@@ -110,8 +114,9 @@ written a readback for.
 
 ## 2. The per-job loop
 
-Process jobs in queue order. For each job with `status: "pending"` whose `ats` is in
-`agent_policy.allowed_ats`:
+Process jobs in queue order. For each job with `status: "pending"` whose `ats` appears
+in `agent_policy.ats_support` — `tier_1_no_login`, or `tier_2_session_based` when the
+user has opted that adapter in:
 
 ```
 1. OPEN     → new tab at apply_url; wait for load; screenshot
@@ -276,7 +281,7 @@ would cross a boundary no config can open:
 | Condition | Why it stops rather than quarantines |
 |---|---|
 | CAPTCHA / bot verification | Working around it is a hard boundary. Ends the run rather than tripping it repeatedly. |
-| Credential or account-creation wall | Hard boundary. *(Note: on a per-job apply page this is not a stop — it is a routine `Requires Account Creation` skip, §6.2.)* |
+| Credential or account-creation wall | Hard boundary. *(Note: a sign-in wall on a per-job apply page is **not** a stop — that is routine tier-2 handling, §6.2.)* |
 | SSN / government ID / payment request | Hard boundary. |
 | Rate-limit or account warning | Continuing risks the user's account. Checkpoint and stop. |
 | `bio.json` unreadable or resume missing | Nothing can proceed. Caught in preflight. |
@@ -315,18 +320,31 @@ Unattended runs end here rather than sitting idle. If the user is present and so
 it, re-verify every field with a fresh screenshot before resuming — the page may have
 reloaded and cleared the form.
 
-### 6.2 Login wall / account creation
-Trigger: "Create an account", "Sign in to continue", an SSO gate, a required password
-field, or an emailed verification code.
+### 6.2 Sign-in wall — tier 2
 
-Action: **do not proceed.** Update the record:
+A sign-in page is never an error and never a boundary violation. It means the platform
+is **tier 2**: usable only inside a session the user established. Check
+`agent_policy.ats_support`:
 
-```jsonc
-{ "status": "skipped", "skip_reason": "Requires Account Creation", "notes": "<what the page asked for>" }
-```
+| State | Action |
+|---|---|
+| Vendor in `tier_2_session_based` **and** the page shows an authenticated session | Proceed. Apply exactly as tier 1, with every §7.4 clean-row check still required. |
+| Vendor in `tier_2_session_based`, **not** signed in | Quarantine: `tier-2 session not authenticated`. Never attempt a sign-in. The user signs in and re-runs. |
+| Vendor **not** in `tier_2_session_based` | Skip: `"skip_reason": "no tier-2 adapter for <vendor> yet"`. A gap, not a prohibition — `docs/ROADMAP.md` has the contribution path. |
 
-Close the tab, log it, move to the next job. Report it in the summary — this is
-expected, not an error.
+**Verify the session before filling anything**, not after: look for the account menu,
+a "Welcome back" state, or a pre-populated profile. A partially filled form abandoned
+at a login redirect is worse than never starting.
+
+**Tier-2 fact-integrity warning.** These platforms often *pre-populate* a form from a
+stored profile or a resume parse. Those values were not necessarily stated by the user
+in `bio.json`, and a stale stored profile is a very effective way to assert something
+false at scale. Treat every pre-filled field as unverified: read it back, compare it
+against `bio.json`, and **quarantine any mismatch you cannot resolve** rather than
+submitting the platform's version of the user's history.
+
+Never create an account. Never enter credentials. No config flag opens either — but
+neither of those is what a sign-in page means.
 
 ### 6.3 Unmapped required field
 
@@ -543,7 +561,7 @@ count of what worked.
 ── Application run complete — 2026-09-01T14:22Z ────────────────
 Attempted        : 47
 Submitted        : 38   (greenhouse 19 · ashby 11 · lever 6 · bamboohr 2)
-Account required : 5    (Workday 3 · iCIMS 2)  — expected, not errors
+No adapter yet   : 5    (Workday 3 · iCIMS 2)  — captured, not errors
 Failed           : 1    (posting closed mid-run)
 
 ⚠ QUARANTINED — 3, none submitted, all need one thing from you:

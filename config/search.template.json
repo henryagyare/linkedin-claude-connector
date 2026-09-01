@@ -2,49 +2,77 @@
   "_README": [
     "Copy to config/search.json. This file is safe to commit if it contains no PII,",
     "but it is gitignored by default so your personal targeting stays yours.",
-    "This file — not the prompt files — is what makes a run specific to you.",
+    "This file \u2014 not the prompt files \u2014 is what makes a run specific to you.",
     "Change the queries here; never edit prompts/ to hardcode a company or a term."
   ],
   "schema_version": "1.0.0",
-
   "search_profile_name": "default",
-
   "queries": [
     "Software Engineer Intern Summer 2027",
     "Software Engineering Intern 2027",
     "Backend Engineer Intern Summer 2027"
   ],
-
-  "locations": ["United States"],
-
+  "locations": [
+    "United States"
+  ],
   "linkedin_filters": {
     "date_posted": "PAST_WEEK",
-    "experience_level": ["INTERNSHIP", "ENTRY_LEVEL"],
-    "job_type": ["INTERNSHIP", "FULL_TIME"],
-    "workplace_type": ["ON_SITE", "HYBRID", "REMOTE"],
+    "experience_level": [
+      "INTERNSHIP",
+      "ENTRY_LEVEL"
+    ],
+    "job_type": [
+      "INTERNSHIP",
+      "FULL_TIME"
+    ],
+    "workplace_type": [
+      "ON_SITE",
+      "HYBRID",
+      "REMOTE"
+    ],
     "sort_by": "DATE_POSTED",
     "under_10_applicants": false
   },
-
   "pagination": {
     "max_pages_per_query": 5,
     "max_jobs_per_query": 100,
     "stop_when_all_results_already_seen": true
   },
-
-  "include_keywords": ["intern", "internship", "co-op", "new grad"],
+  "include_keywords": [
+    "intern",
+    "internship",
+    "co-op",
+    "new grad"
+  ],
   "exclude_keywords": [
-    "senior", "staff", "principal", "manager", "director",
-    "clearance required", "5+ years", "10+ years", "unpaid"
+    "senior",
+    "staff",
+    "principal",
+    "manager",
+    "director",
+    "clearance required",
+    "5+ years",
+    "10+ years",
+    "unpaid"
   ],
   "exclude_companies": [],
   "only_companies": [],
-
-  "ats_allowlist": ["greenhouse", "ashby", "lever", "bamboohr"],
-
   "output": {
     "jobs_file": "data/jobs.json",
-    "dedupe_on": ["apply_url_normalized", "ats_job_id"],
+    "dedupe_on": [
+      "apply_url_normalized",
+      "ats_job_id"
+    ],
     "append_mode": true
+  },
+  "ats_capture": {
+    "_README": [
+      "Discovery captures everything and labels it. Filtering happens at apply time",
+      "from bio.json -> agent_policy.ats_support, so enabling a new adapter does not",
+      "require re-running discovery."
+    ],
+    "capture_tier_1": true,
+    "capture_tier_2": true,
+    "capture_unknown_hosts": true
   }
 }

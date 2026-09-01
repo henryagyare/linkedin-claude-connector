@@ -40,7 +40,15 @@ REQUIRED_BIO_SECTIONS = (
     "agent_policy",
 )
 TEMPLATE_MARKERS = ("example.com", "Jordan", "Rivera", "555 013 4477", "example-user")
-ALLOWED_ATS = {"greenhouse", "ashby", "lever", "bamboohr"}
+TIER_1_KNOWN = {"greenhouse", "ashby", "lever", "bamboohr"}
+REQUIRED_BOUNDARIES = (
+    "agent_enters_credentials",
+    "agent_creates_accounts",
+    "agent_solves_or_bypasses_captcha",
+    "agent_supplies_ssn_government_id_or_payment_info",
+    "agent_evades_rate_limits",
+    "agent_fabricates_facts",
+)
 VALID_STATUSES = {"pending", "applied", "skipped", "quarantined",
                   "needs_review", "failed"}
 VALID_AUTONOMY = {"SUPERVISED", "BATCH_REVIEW", "TRUSTED_BATCH", "AUTOPILOT"}
@@ -152,22 +160,41 @@ def check_bio() -> None:
             )
 
     boundaries = policy.get("hard_boundaries") or {}
+    for key in REQUIRED_BOUNDARIES:
+        if boundaries.get(key) is not False:
+            errors.append(
+                f"config/bio.json: agent_policy.hard_boundaries.{key} must be false. "
+                "These constrain the agent, not which platforms are supported — "
+                "widen ats_support instead."
+            )
     for key, value in boundaries.items():
-        if key.startswith("_"):
+        if key.startswith("_") or key in REQUIRED_BOUNDARIES:
             continue
         if value is not False:
-            errors.append(
-                f"config/bio.json: agent_policy.hard_boundaries.{key} must be false."
-            )
+            errors.append(f"config/bio.json: hard_boundaries.{key} must be false.")
 
     batch = policy.get("batch") or {}
     size = batch.get("batch_size")
     if isinstance(size, int) and size > policy.get("max_applications_per_run", 25):
         warnings.append("batch.batch_size exceeds max_applications_per_run")
 
-    bad_ats = set(policy.get("allowed_ats") or []) - ALLOWED_ATS
-    if bad_ats:
-        warnings.append(f"agent_policy.allowed_ats contains unsupported ATS: {sorted(bad_ats)}")
+    support = policy.get("ats_support") or {}
+    tier1 = set(support.get("tier_1_no_login") or [])
+    tier2 = set(support.get("tier_2_session_based") or [])
+    if not tier1 and not tier2:
+        errors.append("config/bio.json: ats_support enables no platforms at all")
+    if tier1 - TIER_1_KNOWN:
+        warnings.append(
+            f"tier_1_no_login lists platforms with no adapter in prompts/: "
+            f"{sorted(tier1 - TIER_1_KNOWN)}"
+        )
+    if overlap := tier1 & tier2:
+        errors.append(f"ats_support: {sorted(overlap)} listed in both tiers")
+    if tier2:
+        warnings.append(
+            f"tier-2 adapters enabled: {sorted(tier2)}. These need a session you sign "
+            "into yourself; rows quarantine when you are not signed in."
+        )
 
 
 def _walk(node: Any, prefix: str = "") -> list[tuple[str, Any]]:

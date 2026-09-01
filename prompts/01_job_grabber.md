@@ -18,7 +18,8 @@
 2. **Never authenticate as the user.** Do not enter credentials, do not click
    "Sign in", do not create accounts. The user's LinkedIn session is already open
    in the browser. If it is not, halt (see §7).
-3. **Never touch "Easy Apply."** It is explicitly out of scope for this project.
+3. **Never touch "Easy Apply."** Excluded by design — this project exists to reach
+   the employer's own ATS, where applications are actually reviewed.
 4. **The user's config is the source of truth for *what* to search.** Read
    `config/search.json`. Do not hardcode a company, a term, or a graduation year
    from your own assumptions. If `config/search.json` is missing, halt and tell the
@@ -42,12 +43,13 @@
 |---|---|---|---|
 | Search config | `config/search.json` | Yes | Queries, locations, filters, pagination caps |
 | Existing results | `data/jobs.json` | No | Used for dedupe; created if absent |
-| ATS allowlist | `config/search.json → ats_allowlist` | Yes | MVP: greenhouse, ashby, lever, bamboohr |
+| Capture policy | `config/search.json → ats_capture` | No | Defaults to capturing every tier; filtering happens at apply time |
 
 Load the config **before** opening the browser. Echo back to the user a one-line plan:
 
 ```
-Plan: 3 queries x up to 5 pages, US only, past week, ATS allowlist [greenhouse, ashby, lever, bamboohr].
+Plan: 3 queries x up to 5 pages, US only, past week.
+Capturing all tiers; the applier decides what it can actually submit.
 ```
 
 ---
@@ -121,7 +123,12 @@ Do not go spelunking through a careers site.
 
 ## 4. ATS classification
 
-### 4.1 In scope — no login required
+Discovery **captures and labels everything**. It does not decide what gets applied to
+— that happens at apply time from `agent_policy.ats_support`. Capturing a platform no
+adapter supports yet costs nothing and means the queue is already populated the day
+someone ships that adapter.
+
+### 4.1 Tier 1 — public forms, no sign-in
 
 | ATS | Host patterns | Job ID location |
 |---|---|---|
@@ -130,7 +137,8 @@ Do not go spelunking through a careers site.
 | **Lever** | `jobs.lever.co`, `*.lever.co` | trailing UUID segment |
 | **BambooHR** | `*.bamboohr.com/careers/*`, `*.bamboohr.co.uk/careers/*` | trailing numeric segment |
 
-Set `"requires_account": false`, `"ats_confidence": "high"`, `"status": "pending"`.
+Set `"ats_tier": 1`, `"requires_account": false`, `"ats_confidence": "high"`,
+`"status": "pending"`.
 
 > **Embedded boards.** Many companies iframe Greenhouse or Lever into their own
 > careers page (`careers.example.com/jobs/123`). Inspect the page for a Greenhouse
@@ -139,26 +147,44 @@ Set `"requires_account": false`, `"ats_confidence": "high"`, `"status": "pending
 > but set `ats` to the detected underlying vendor and add
 > `"notes": "embedded <vendor> board"`.
 
-### 4.2 Out of scope — requires account creation
+### 4.2 Tier 2 — session-based platforms
 
-If the final host matches any of these, **skip the job** and write a record with
-`"status": "skipped"` and `"skip_reason": "Requires Account Creation"`:
+These need an authenticated session. That is **not** the same as being out of bounds:
+the agent already works inside the user's LinkedIn session without ever touching
+credentials, and the same model applies here. What it never does is *create* the
+session.
 
 `myworkdayjobs.com` / `workday.com` · `icims.com` · `taleo.net` /
 `oraclecloud.com` · `successfactors.com` / `sapsf.com` · `brassring.com` /
-`kenexa` · `jobvite.com` (when it gates on sign-up) · `smartrecruiters.com`
-(when it gates on sign-up) · `avature.net` · `phenompeople.com` ·
-`eightfold.ai` · `ripplematch.com` · `handshake` · any host presenting a
-"Create an account to continue" wall.
+`kenexa` · `jobvite.com` · `smartrecruiters.com` · `avature.net` ·
+`phenompeople.com` · `eightfold.ai` · `ripplematch.com` · `handshake` · any host
+presenting a sign-in or "create an account to continue" wall.
 
-> **Decide by behavior, not just by hostname.** If a host is not on either list but
-> the first thing the page asks for is account creation or a login, it is out of
-> scope: `"skip_reason": "Requires Account Creation"`. Record it — the skip log is
-> a deliverable, so the user knows what was consciously passed over.
+**Always capture these**, with `"ats_tier": 2`, `"requires_account": true`,
+`"status": "pending"`, and the vendor in `ats`.
 
-### 4.3 Anything else
-`"ats": "<host>"`, `"status": "needs_review"`, `"ats_confidence": "low"`.
-Never invent a mapping.
+Whether they are applied to is the applier's call, read from
+`agent_policy.ats_support.tier_2_session_based`:
+
+- **Adapter enabled and the user is signed in** → applied like any other job.
+- **Adapter enabled, not signed in** → quarantined (`tier-2 session not
+  authenticated`). Never a sign-in attempt.
+- **No adapter yet** → skipped at apply time with
+  `"skip_reason": "no tier-2 adapter for <vendor> yet"`.
+
+That last case is a **gap, not a policy** — see `docs/ROADMAP.md`. Writing an adapter
+is a wanted contribution, and because discovery already captured these rows, a new
+adapter starts with a populated queue instead of an empty one.
+
+> **Classify by behavior, not hostname alone.** An unlisted host whose first ask is a
+> sign-in is tier 2. Record the vendor you actually observed — that log is how the
+> project learns which adapter is worth writing next.
+
+### 4.3 Unrecognized platforms
+`"ats": "<host>"`, `"ats_tier": null`, `"status": "needs_review"`,
+`"ats_confidence": "low"`. Capture it rather than dropping it — an unrecognized host
+appearing repeatedly across runs is exactly the signal that a new adapter is worth
+writing. Never invent a mapping.
 
 ---
 
@@ -179,7 +205,7 @@ Top-level shape (see `data/jobs.example.json` for a complete sample):
     "linkedin_cards_seen": 0,
     "external_ats_found": 0,
     "easy_apply_skipped": 0,
-    "requires_account_creation_skipped": 0,
+    "tier_2_captured": 0,
     "unresolved": 0
   },
   "jobs": [ /* job records */ ]
@@ -201,7 +227,8 @@ Each job record:
   "linkedin_url": "…",
   "apply_url": "…",               // final, post-redirect URL
   "apply_url_normalized": "…",    // lowercased host+path, no query/fragment — dedupe key
-  "ats": "greenhouse | ashby | lever | bamboohr | <host> | null",
+  "ats": "greenhouse | ashby | lever | bamboohr | <vendor> | <host> | null",
+  "ats_tier": 1,                  // 1 = no login · 2 = session-based · null = unknown
   "ats_job_id": "… | null",
   "ats_confidence": "high | medium | low",
   "requires_account": false,
@@ -328,8 +355,9 @@ Queries run           : 3
 LinkedIn cards seen   : 118
 External ATS captured : 24   → greenhouse 11 · ashby 6 · lever 5 · bamboohr 2
 Easy Apply skipped    : 71
-Account-required skip : 19   (Workday 12 · iCIMS 5 · Taleo 2)
-Needs review          : 4
+Tier 2 captured       : 19   (Workday 12 · iCIMS 5 · Taleo 2)
+                             queued for whenever an adapter lands
+Needs review          : 4    (2x careers.northwind.io — recurring, worth an adapter?)
 Written to            : data/jobs.json
 Next                  : run prompts/02_job_applier.md
 ────────────────────────────────────────────────────

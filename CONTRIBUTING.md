@@ -5,19 +5,35 @@ improvements to the two prompt files, new ATS coverage, or better field mappings
 
 ## Before you start
 
-Read [CLAUDE.md](CLAUDE.md), especially **§3 Non-negotiable invariants**. A PR that
-weakens any of them will be declined no matter how good the code is:
+Two different lists, and they are often confused.
+
+### Invariants — a PR may not weaken these
+
+They constrain **what the agent does**. None of them names a platform.
 
 - No invented **facts** — a row missing a required fact is quarantined, never guessed
 - No submission without a full readback written to disk first
 - No agent raising its own autonomy level or escalation mode above the config
-- No credential entry or account creation
-- No CAPTCHA solving or evasion
-- No LinkedIn Easy Apply
-- No account-gated ATS platforms
-- The three private paths stay gitignored
+- No credential entry or account creation *(working inside a session the user
+  established is fine — that is how LinkedIn already works)*
+- No CAPTCHA solving or evasion, no rate-limit evasion
+- No supplying an SSN, government ID, or payment information
+- The private paths stay gitignored
 
-These are the project's boundary, not a backlog.
+### Scope — this is a backlog, and it is open
+
+Everything here is a gap, not a prohibition. **[docs/ROADMAP.md](docs/ROADMAP.md)** has
+the details and the open design questions.
+
+- **Tier-2 adapters** (Workday, iCIMS, SmartRecruiters, Jobvite, …) — the biggest
+  coverage gap and the most interesting problem in the repo
+- Discovery sources beyond LinkedIn, and cross-source dedupe
+- Non-US work authorization modelling
+- A fixture-based replay harness
+- Accessibility and non-engineer documentation
+
+LinkedIn Easy Apply sits between the two: excluded by design, but that is a design
+argument. Open an issue rather than a PR.
 
 ## Setup
 
@@ -29,10 +45,16 @@ python3 scripts/validate.py
 
 ## Good first contributions
 
-- A new **no-login** ATS adapter (see CLAUDE.md §6)
+- Newly observed form quirks in `docs/ATS_NOTES.md` — smallest useful PR there is
 - Better field mappings in `prompts/02_job_applier.md` §4
-- Newly observed form quirks in `docs/ATS_NOTES.md`
-- README clarity fixes
+- A new **tier-1** ATS adapter (see CLAUDE.md §6)
+- README and docs clarity fixes
+
+## If you want the hard one
+
+A **tier-2 adapter**. Read `docs/ROADMAP.md` first — the Workday tenant-account model
+and the stale-stored-profile problem are unsolved, and worth talking through in an
+issue before you write code.
 
 ## PR checklist
 
