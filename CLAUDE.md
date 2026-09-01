@@ -47,6 +47,7 @@ purpose.
 | `data/screenshots/` | Review + confirmation captures | 🔒 never |
 | `scripts/validate.py` | Offline config/queue validation | ✅ |
 | `docs/ATS_NOTES.md` | Per-platform form quirks | ✅ |
+| `docs/ROADMAP.md` | Open problems & wanted contributions | ✅ |
 | `docs/SAFETY.md` | The guarantees, stated plainly | ✅ |
 
 ---
@@ -75,14 +76,20 @@ implemented. If a request asks for one, say no and explain which invariant it hi
    required, the answer must be a real one — never generated, inferred, or defaulted
    from a timeout.
 3. **No credential handling, ever.** No password fields, no account creation, no
-   session-cookie manipulation, no stored `storage_state.json`. The human is signed
-   in; the agent uses that session and never extends it.
+   session-cookie manipulation, no stored `storage_state.json`.
+   **This is a constraint on the agent, not a list of forbidden sites.** Working
+   inside a session the human established is explicitly fine — that is how LinkedIn
+   has always worked, and it is the model tier-2 adapters use. The agent uses a
+   session; it never creates one.
 4. **No CAPTCHA solving or evasion.** Detect → pause → hand to the human → wait.
    Solver services and evasion heuristics are out of bounds permanently.
 5. **No Easy Apply.** The LinkedIn-internal path is excluded by design, not by
    omission.
-6. **No account-gated ATS.** Workday, iCIMS, Taleo, SuccessFactors, Avature,
-   Eightfold, and friends are logged as `Requires Account Creation` and skipped.
+6. **Platform coverage is scope, not an invariant.** `ats_support` in the user's
+   config decides which platforms apply; tier-2 (session-based) platforms are an
+   **open contribution area**, not a prohibition — see `docs/ROADMAP.md`. Discovery
+   captures every tier regardless, so a new adapter inherits a populated queue.
+   What stays fixed is invariant 3: the agent never creates the session.
 7. **The three private paths stay gitignored.** `config/bio.json`,
    `data/resume.pdf`, `data/jobs.json`. Never `git add -f` them. Never add an example
    containing real data.
@@ -176,19 +183,40 @@ Treat these with the rigor of production code.
 
 ## 6. Adding a new ATS
 
-The MVP covers Greenhouse, Ashby, Lever, and BambooHR. To add another:
+The MVP covers four tier-1 platforms. Both tiers are open for contribution.
 
-1. **Verify it needs no account** to submit. If it does, stop — it is out of scope.
-2. Add host patterns and job-ID extraction to `prompts/01_job_grabber.md` §4.1.
-3. Add a platform subsection to `prompts/02_job_applier.md` §4.1 covering: form
-   framework (server-rendered vs. client-rendered), resume upload mechanism, iframe
-   behavior, multi-step flow, and known field quirks.
-4. Add the slug to `agent_policy.allowed_ats` in `config/bio.template.json` and to
-   `ats_allowlist` in `config/search.template.json`.
-5. Document the quirks in `docs/ATS_NOTES.md`.
-6. Update the scope table in `README.md`.
-7. **Test in `dry_run` mode against at least three real postings** before the PR. Note
-   in the PR which postings you used.
+### 6.1 Tier 1 — public form, no sign-in
+
+1. Add host patterns and job-ID extraction to `prompts/01_job_grabber.md` §4.1.
+2. Add a platform subsection to `prompts/02_job_applier.md` §4.1: form framework
+   (server- vs client-rendered), resume upload mechanism, iframe behavior, multi-step
+   flow, known field quirks.
+3. Add the slug to `agent_policy.ats_support.tier_1_no_login` in
+   `config/bio.template.json`, and to `TIER_1_KNOWN` in `scripts/validate.py`.
+4. Document quirks in `docs/ATS_NOTES.md`; update the tier table in `README.md`.
+5. **Test in `dry_run` against at least three real postings.** Note which in the PR.
+
+### 6.2 Tier 2 — session-based
+
+Same steps, plus the parts that make tier 2 its own problem. Read `docs/ROADMAP.md`
+before starting; several of these are unsolved and worth an issue first.
+
+6. **Session verification before filling.** Detect an authenticated session
+   affirmatively (account menu, populated profile) — never by attempting a submit and
+   seeing what happens. Not signed in → quarantine, never a sign-in attempt.
+7. **Tenant awareness where it applies.** Workday scopes accounts per employer, so
+   "signed in" is per-tenant. An adapter that treats it globally will silently
+   quarantine everything or, worse, act on the wrong session.
+8. **Reconcile pre-populated fields.** Tier-2 platforms autofill from a stored profile
+   that may be stale or parsed from an old resume. Every pre-filled field is
+   unverified input: read it back, compare against `bio.json`, quarantine on a
+   mismatch you cannot resolve. **This is invariant 1, not a nicety** — a stale stored
+   profile submitting an old graduation date across forty applications, unattended, is
+   exactly the failure mode this project must not have.
+9. Add the slug to `_tier_2_adapters_wanted` → `tier_2_session_based` in the template,
+   and leave it **out** of the default enabled list. Users opt in.
+10. Test the not-signed-in path explicitly: it must quarantine cleanly and never
+    attempt authentication.
 
 ---
 
@@ -200,7 +228,9 @@ There is no unit-test suite for prompt behavior; the tests are structured manual
 - [ ] An Easy Apply posting is skipped without a click
 - [ ] An external posting resolves to the final URL after redirects
 - [ ] Each of the four in-scope ATS classifies with `ats_confidence: high`
-- [ ] A Workday link is recorded as `Requires Account Creation`, not dropped silently
+- [ ] A Workday link is captured with `ats_tier: 2`, not dropped silently
+- [ ] With no tier-2 adapter enabled, that row skips at apply time with a
+      `no tier-2 adapter` reason — never a sign-in attempt
 - [ ] Re-running does not duplicate records or overwrite `applied` entries
 - [ ] A mid-run interruption loses at most one checkpoint of work
 
