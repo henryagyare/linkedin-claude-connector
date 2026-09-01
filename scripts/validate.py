@@ -10,6 +10,7 @@ Checks:
   3. The resume referenced by bio.json exists.
   4. data/jobs.json (if present) matches the documented schema.
   5. The three private paths are actually ignored by git.
+  6. No value from your own bio.json appears in any tracked (public) file.
 
 Usage:
     python3 scripts/validate.py
@@ -18,6 +19,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -293,9 +295,73 @@ def check_gitignore() -> None:
             )
 
 
+PII_FIELD_PATTERNS = (
+    r"^identity\.(first_name|last_name|preferred_name|email|phone|date_of_birth|headline)$",
+    r"^location\.(street_address|city|postal_code)$",
+    r"^social_links\.",
+    r"^education\[\d+\]\.institution$",
+    r"^experience\[\d+\]\.company$",
+)
+GENERIC_VALUES = {
+    "united states", "computer science", "bachelor of science", "no preference",
+}
+
+
+def check_no_pii_in_tracked_files() -> None:
+    """Cross-check: no identifying value from bio.json may appear in a tracked file.
+
+    This guards the class of leak a .gitignore cannot catch — the file is public and
+    the leak is something typed into it. Only genuinely identifying fields are scanned
+    (name, contact, address, social links, school, employers); config machinery shares
+    vocabulary with the docs by design and is skipped. Values are never printed.
+    """
+    bio_path = ROOT / "config" / "bio.json"
+    if not bio_path.exists() or not (ROOT / ".git").exists():
+        return
+    try:
+        bio = json.loads(bio_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return
+
+    needles: list[tuple[str, str]] = []
+    for field, value in _walk(bio):
+        if not isinstance(value, str):
+            continue
+        if not any(re.match(pat, field) for pat in PII_FIELD_PATTERNS):
+            continue
+        v = value.strip()
+        if len(v) < 5 or v.lower() in GENERIC_VALUES:
+            continue
+        if v.startswith(("http://", "https://")):
+            v = v.split("//", 1)[1]
+        needles.append((field, v.lower().rstrip("/")))
+
+    if not needles:
+        return
+    result = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True)
+    if result.returncode != 0:
+        return
+
+    for rel in result.stdout.split():
+        if rel.endswith(".template.json"):
+            continue
+        try:
+            body = (ROOT / rel).read_text(encoding="utf-8", errors="ignore").lower()
+        except OSError:
+            continue
+        for field, needle in needles:
+            if needle in body:
+                errors.append(
+                    f"PRIVACY: the value of bio.json '{field}' appears in the tracked "
+                    f"file {rel}. Public files carry vendor behaviour, never your own "
+                    f"data (CLAUDE.md 5.4)."
+                )
+
+
 def main() -> int:
     print("linkedin-claude-connector — validate")
-    for step in (check_shipped_json, check_bio, check_jobs, check_gitignore):
+    for step in (check_shipped_json, check_bio, check_jobs, check_gitignore,
+                 check_no_pii_in_tracked_files):
         step()
 
     for w in warnings:
