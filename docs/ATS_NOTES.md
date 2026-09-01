@@ -54,14 +54,34 @@ Observed behavior of the four in-scope platforms. Append findings here as you hi
 
 ---
 
-## Out of scope — account required
+---
 
-Recorded as `Requires Account Creation` and skipped:
+## Tier 2 — session-based (adapters wanted)
 
 `myworkdayjobs.com` · `icims.com` · `taleo.net` / `oraclecloud.com` ·
-`successfactors.com` / `sapsf.com` · `brassring.com` · `jobvite.com` (when gated) ·
-`smartrecruiters.com` (when gated) · `avature.net` · `phenompeople.com` ·
-`eightfold.ai` · `ripplematch.com` · Handshake
+`successfactors.com` / `sapsf.com` · `brassring.com` · `jobvite.com` ·
+`smartrecruiters.com` · `avature.net` · `phenompeople.com` · `eightfold.ai` ·
+`ripplematch.com` · Handshake
+
+These need a session **you** signed into. No adapters exist yet, so today they are
+captured by discovery (`"ats_tier": 2`) and skipped at apply time with
+`"skip_reason": "no tier-2 adapter for <vendor> yet"`. That is a gap, not a policy —
+**[ROADMAP.md](ROADMAP.md) has the contribution path and the open design questions.**
+
+Early field notes for anyone starting an adapter:
+
+**Workday** — every employer is a separate tenant with a separate account
+(`acme.wd1.` and `globex.wd5.` share nothing). "Signed in" must be evaluated
+per-tenant. Pre-populates from a stored per-tenant profile that is frequently stale —
+reconcile every pre-filled field against `bio.json` before submitting. Multi-page with
+server-side state, so partial applications can be resumed rather than restarted.
+
+**iCIMS** — closer to a single account across employers than Workday. Session
+detection is the main work. Likely the easiest first tier-2 adapter.
+
+**SmartRecruiters / Jobvite** — gate inconsistently; some postings are fully public.
+Classify by observed behavior per posting, not by hostname.
 
 Classification is by **behavior**, not hostname alone: if the first thing a page asks
-for is an account or a login, it is out of scope regardless of vendor.
+for is a sign-in, treat it as tier 2 regardless of vendor, and record the vendor you
+observed — that log is how the project learns which adapter to write next.
