@@ -53,6 +53,7 @@ VALID_STATUSES = {"pending", "applied", "skipped", "quarantined",
                   "needs_review", "failed"}
 VALID_AUTONOMY = {"SUPERVISED", "BATCH_REVIEW", "TRUSTED_BATCH", "AUTOPILOT"}
 VALID_ESCALATION = {"BLOCK_AND_ASK", "QUARANTINE_AND_CONTINUE"}
+VALID_APPLY_SHAPES = {"form", "conversational", "unknown"}
 
 errors: list[str] = []
 warnings: list[str] = []
@@ -190,6 +191,18 @@ def check_bio() -> None:
         )
     if overlap := tier1 & tier2:
         errors.append(f"ats_support: {sorted(overlap)} listed in both tiers")
+    conv = (support.get("conversational_apply") or {})
+    if conv.get("attempt") is True:
+        errors.append(
+            "config/bio.json: ats_support.conversational_apply.attempt must be false. "
+            "A chatbot dialogue has no field readback and no pre-submit gate, so none "
+            "of the review safeguards apply to it."
+        )
+    if support.get("route_on_vendor_not_host") is False:
+        warnings.append(
+            "route_on_vendor_not_host is false — white-label domains wrapping a "
+            "supported vendor will be skipped unnecessarily"
+        )
     if tier2:
         warnings.append(
             f"tier-2 adapters enabled: {sorted(tier2)}. These need a session you sign "
@@ -232,6 +245,19 @@ def check_jobs() -> None:
             errors.append(f"{where}: unknown status '{status}'")
         if status == "quarantined" and not job.get("quarantine_reason"):
             errors.append(f"{where}: quarantined without a quarantine_reason")
+        shape = job.get("apply_shape")
+        if shape is not None and shape not in VALID_APPLY_SHAPES:
+            errors.append(f"{where}: unknown apply_shape {shape!r}")
+        if shape == "conversational" and status not in {"skipped", "needs_review"}:
+            errors.append(
+                f"{where}: apply_shape is conversational but status is {status!r}. "
+                "Chat-based applications are never attempted."
+            )
+        if job.get("white_label") and job.get("ats") and not job.get("resolution_hops"):
+            warnings.append(
+                f"{where}: white_label with a resolved vendor but no resolution_hops "
+                "— the resolution path should be recorded"
+            )
         if job.get("requires_account") and status not in {"skipped", "needs_review"}:
             errors.append(f"{where}: requires_account is true but status is '{status}'")
         key = job.get("apply_url_normalized") or job.get("apply_url")
@@ -240,9 +266,16 @@ def check_jobs() -> None:
         seen.add(key)
 
     counts: dict[str, int] = {}
+    shapes: dict[str, int] = {}
+    vendors: dict[str, int] = {}
     for job in jobs:
         counts[job.get("status", "?")] = counts.get(job.get("status", "?"), 0) + 1
-    print("  queue:", ", ".join(f"{k}={v}" for k, v in sorted(counts.items())) or "empty")
+        shapes[job.get("apply_shape") or "?"] = shapes.get(job.get("apply_shape") or "?", 0) + 1
+        key = job.get("ats") or ("white-label/unresolved" if job.get("white_label") else "unknown")
+        vendors[key] = vendors.get(key, 0) + 1
+    print("  queue :", ", ".join(f"{k}={v}" for k, v in sorted(counts.items())) or "empty")
+    print("  shapes:", ", ".join(f"{k}={v}" for k, v in sorted(shapes.items())))
+    print("  vendor:", ", ".join(f"{k}={v}" for k, v in sorted(vendors.items())))
 
 
 def check_gitignore() -> None:
