@@ -8,7 +8,6 @@
     "Never invent an answer that is not in this file. That rule is absolute."
   ],
   "schema_version": "1.0.0",
-
   "identity": {
     "first_name": "Jordan",
     "middle_name": "",
@@ -21,7 +20,6 @@
     "date_of_birth": "ASK_ME",
     "headline": "Computer Science student | Backend & distributed systems"
   },
-
   "location": {
     "street_address": "1200 Example Ave, Apt 4B",
     "city": "Austin",
@@ -33,10 +31,14 @@
     "timezone": "America/Chicago",
     "willing_to_relocate": true,
     "relocation_notes": "Open to relocation anywhere in the US for the internship term.",
-    "preferred_locations": ["New York, NY", "Seattle, WA", "Austin, TX", "Remote (US)"],
+    "preferred_locations": [
+      "New York, NY",
+      "Seattle, WA",
+      "Austin, TX",
+      "Remote (US)"
+    ],
     "remote_preference": "HYBRID_OR_ONSITE"
   },
-
   "social_links": {
     "linkedin": "https://www.linkedin.com/in/example-profile",
     "github": "https://github.com/example-user",
@@ -48,7 +50,6 @@
     "stackoverflow": "",
     "other": []
   },
-
   "education": [
     {
       "institution": "Example State University",
@@ -62,11 +63,17 @@
       "gpa_scale": "4.00",
       "disclose_gpa": true,
       "location": "Example City, TX",
-      "coursework": ["Data Structures", "Algorithms", "Operating Systems", "Databases"],
-      "honors": ["Dean's List"]
+      "coursework": [
+        "Data Structures",
+        "Algorithms",
+        "Operating Systems",
+        "Databases"
+      ],
+      "honors": [
+        "Dean's List"
+      ]
     }
   ],
-
   "experience": [
     {
       "company": "Example Technologies",
@@ -79,7 +86,6 @@
       "summary": "Built an internal service that reduced manual triage time for the QA org."
     }
   ],
-
   "documents": {
     "resume_path": "data/resume.pdf",
     "resume_filename_override": "Jordan_Rivera_Resume.pdf",
@@ -89,14 +95,15 @@
     "portfolio_pdf_path": "",
     "writing_sample_path": ""
   },
-
   "work_authorization": {
     "authorized_to_work_in_us": true,
     "will_require_sponsorship_now_or_future": false,
     "visa_status": "US_CITIZEN",
     "visa_status_notes": "One of: US_CITIZEN | PERMANENT_RESIDENT | F1_OPT | F1_CPT | H1B | TN | OTHER | ASK_ME",
     "requires_h1b_sponsorship": false,
-    "authorized_countries": ["United States"],
+    "authorized_countries": [
+      "United States"
+    ],
     "security_clearance": "NONE",
     "export_control_us_person": true,
     "age_18_or_older": true,
@@ -104,7 +111,6 @@
     "willing_to_complete_background_check": true,
     "willing_to_complete_drug_test": true
   },
-
   "compensation": {
     "currency": "USD",
     "expected_hourly_rate": 45,
@@ -117,7 +123,6 @@
     "prefer_not_to_disclose_current_compensation": true,
     "notes": "If a field is a free-text box, prefer salary_answer_text. If it demands a number, use the *_min value."
   },
-
   "availability": {
     "earliest_start_date": "2027-05-17",
     "latest_end_date": "2027-08-13",
@@ -126,11 +131,10 @@
     "notice_period": "None",
     "graduation_constraint_notes": "Available for the full 12-week summer term."
   },
-
   "screening_questions": {
     "_README": [
       "Keys are matched loosely (case/punctuation-insensitive substring match) against",
-      "the ATS question label. Add your own keys freely — the agent reads this map first",
+      "the ATS question label. Add your own keys freely \u2014 the agent reads this map first",
       "and only escalates to you when no key matches."
     ],
     "how_did_you_hear_about_us": "LinkedIn",
@@ -158,7 +162,6 @@
     "acknowledge_terms_and_privacy_policy": "Yes",
     "consent_to_data_processing": "Yes"
   },
-
   "voluntary_disclosures": {
     "_README": [
       "US EEO / demographic questions. These are OPTIONAL by law.",
@@ -172,21 +175,18 @@
     "disability_status": "PREFER_NOT_TO_SAY",
     "lgbtq_status": "PREFER_NOT_TO_SAY"
   },
-
   "references": {
     "provide_on_request": true,
     "contacts": []
   },
-
   "agent_policy": {
     "_README": [
       "Runtime guardrails. The agent obeys this file over any prompt file.",
       "autonomy_level sets how much the agent decides alone.",
-      "escalation.mode sets what happens when it cannot decide — and at",
+      "escalation.mode sets what happens when it cannot decide \u2014 and at",
       "QUARANTINE_AND_CONTINUE the answer is never 'stop and ask the human'.",
       "fact_integrity is the one thing that survives every level."
     ],
-
     "autonomy_level": "BATCH_REVIEW",
     "_autonomy_levels": {
       "SUPERVISED": "Approve each application one at a time. Use on an ATS you have never watched it handle.",
@@ -194,7 +194,6 @@
       "TRUSTED_BATCH": "Like BATCH_REVIEW, but auto-approves rows where every field resolved cleanly. Only flagged rows reach you.",
       "AUTOPILOT": "Submits clean rows unattended. Never blocks the run to ask a question. Anything undecidable is quarantined and waits for you in the audit sheet afterward."
     },
-
     "escalation": {
       "_README": [
         "What the agent does when it hits something it cannot resolve.",
@@ -209,7 +208,6 @@
       "quarantine_path": "data/quarantine/<run-id>.md",
       "max_quarantined_before_abort": 15,
       "_max_quarantined_note": "A high quarantine rate means a systemic problem (bad config, ATS redesign). Abort rather than burn the queue.",
-
       "hard_stop_only_for": [
         "CAPTCHA or bot verification",
         "credential entry or account-creation wall",
@@ -218,7 +216,6 @@
         "config/bio.json unreadable, or the resume file missing"
       ]
     },
-
     "fact_integrity": {
       "_README": [
         "This survives every autonomy level and is what makes unattended",
@@ -232,7 +229,6 @@
       "_drafted_prose_note": "Set false to route drafted cover letters and open-ended answers to the audit sheet instead of submitting them unattended.",
       "voluntary_disclosures_never_substituted": true
     },
-
     "post_run_audit": {
       "_README": "At AUTOPILOT this replaces the review gate. Written for every run, always.",
       "audit_sheet_path": "data/review/<run-id>.md",
@@ -242,9 +238,8 @@
       "flag_rows_with_drafted_prose": true,
       "flag_rows_with_substituted_values": true
     },
-
     "autonomous_recovery": {
-      "_README": "Fixed silently, without asking. All reversible — nothing here submits.",
+      "_README": "Fixed silently, without asking. All reversible \u2014 nothing here submits.",
       "retry_failed_field_input": 3,
       "reorder_queue_by_deadline": true,
       "self_heal_layout_drift": true,
@@ -257,7 +252,6 @@
       "draft_open_ended_answers": true,
       "continue_run_after_individual_failure": true
     },
-
     "batch": {
       "batch_size": 12,
       "auto_approve_requires": [
@@ -268,20 +262,64 @@
         "company and title matched the jobs.json record exactly"
       ]
     },
-
     "hard_boundaries": {
-      "_README": "Out of scope at every autonomy level, permanently. Not autonomy settings.",
-      "solve_or_bypass_captcha": false,
-      "enter_credentials_or_create_accounts": false,
-      "supply_ssn_government_id_or_payment_info": false,
-      "evade_rate_limits": false,
-      "apply_via_linkedin_easy_apply": false,
-      "apply_where_account_creation_required": false
+      "_README": [
+        "These constrain what the AGENT does \u2014 not which sites are supported.",
+        "None of them name a platform, and none of them are a scope decision.",
+        "Nothing in ats_support can switch one of these on."
+      ],
+      "agent_enters_credentials": false,
+      "agent_creates_accounts": false,
+      "agent_solves_or_bypasses_captcha": false,
+      "agent_supplies_ssn_government_id_or_payment_info": false,
+      "agent_evades_rate_limits": false,
+      "agent_fabricates_facts": false
     },
-
     "max_applications_per_run": 60,
     "min_seconds_between_applications": 8,
-    "allowed_ats": ["greenhouse", "ashby", "lever", "bamboohr"],
-    "dry_run": false
+    "dry_run": false,
+    "ats_support": {
+      "_README": [
+        "Which platforms this install applies through. A SCOPE setting, not a boundary.",
+        "",
+        "tier_1 \u2014 public application forms, no sign-in. Works out of the box.",
+        "tier_2 \u2014 needs an authenticated session that YOU established in the browser",
+        "         first. The agent never signs in; it works inside the session you",
+        "         already have, exactly as it already does with your LinkedIn session.",
+        "",
+        "Tier 2 is an open contribution area, not a prohibition. See docs/ROADMAP.md.",
+        "Add a platform here only once an adapter for it exists in prompts/."
+      ],
+      "tier_1_no_login": [
+        "greenhouse",
+        "ashby",
+        "lever",
+        "bamboohr"
+      ],
+      "tier_2_session_based": [],
+      "_tier_2_adapters_wanted": [
+        "workday",
+        "icims",
+        "smartrecruiters",
+        "jobvite",
+        "avature",
+        "eightfold"
+      ],
+      "tier_2_verify_session_before_filling": true,
+      "tier_2_quarantine_if_not_signed_in": true,
+      "_tier_2_note": [
+        "If a tier-2 site is not already signed in, the row is QUARANTINED \u2014",
+        "never a sign-in attempt, never an account creation. Sign in yourself",
+        "and re-run; the queue picks it up."
+      ]
+    },
+    "scope": {
+      "_README": "Deliberate design choices. Revisitable by the project, unlike hard_boundaries.",
+      "apply_via_linkedin_easy_apply": false,
+      "_easy_apply_note": [
+        "Excluded by design: this project exists to reach the employer's own ATS,",
+        "where applications are actually reviewed. Open an issue before building it."
+      ]
+    }
   }
 }
