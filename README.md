@@ -40,12 +40,26 @@ It is a **tedium remover**, not an application cannon.
 
 ## 🎯 Scope
 
-| | |
-|---|---|
-| ✅ **In scope** | Greenhouse · Ashby · Lever · BambooHR — external, no-login application forms |
-| ❌ **Excluded** | LinkedIn Easy Apply (never touched, by design) |
-| ⏭️ **Auto-skipped** | Workday, iCIMS, Taleo, SuccessFactors, Jobvite, SmartRecruiters, Avature, Eightfold, and anything else that gates on account creation — logged as `Requires Account Creation` |
-| 🚫 **Never** | Entering passwords, creating accounts, solving CAPTCHAs, supplying SSN / government ID / bank details, submitting without your approval |
+Platforms are organized in **tiers**, and the tier list is a scope setting you can
+widen — not a fixed boundary.
+
+| Tier | Meaning | Status |
+|---|---|---|
+| **Tier 1** | Public application form, no sign-in | ✅ Greenhouse · Ashby · Lever · BambooHR |
+| **Tier 2** | Needs a session **you** signed into — the agent works inside it, never creates it | 🚧 Open. Workday, iCIMS, SmartRecruiters, Jobvite and others are [wanted contributions](docs/ROADMAP.md) |
+| **Unknown** | Unrecognized host | 📋 Captured and logged, so recurring ones surface as adapter candidates |
+
+Discovery captures **all** tiers regardless. Filtering happens at apply time, so
+enabling a new adapter retroactively covers everything you already discovered.
+
+**What the agent never does**, at any tier or autonomy level: enter credentials, create
+accounts, solve or bypass CAPTCHAs, evade rate limits, supply an SSN / government ID /
+payment details, or fabricate a fact on an application. Note that these constrain the
+*agent's behavior* — none of them names a platform.
+
+**LinkedIn Easy Apply** is excluded by design: the point is to reach the employer's own
+ATS, where applications are actually read. That's a design decision, not a rule — open
+an issue if you disagree.
 
 ---
 
@@ -56,8 +70,8 @@ Two agents, one file between them. That is the whole design.
 ```mermaid
 flowchart LR
     subgraph CFG["Your config (never committed)"]
-        A1["config/search.json<br/><i>what to look for</i>"]
-        A2["config/bio.json<br/><i>who you are</i>"]
+        A1["config/search.json<br/>*what to look for*"]
+        A2["config/bio.json<br/>*who you are*"]
         A3["data/resume.pdf"]
     end
 
@@ -67,8 +81,9 @@ flowchart LR
         B3 -- yes --> B4["SKIP"]
         B3 -- no --> B5["Follow external link"]
         B5 --> B6{"Which ATS?"}
-        B6 -- "GH / Ashby / Lever / Bamboo" --> B7["Capture"]
-        B6 -- "Workday / iCIMS / …" --> B8["Requires Account Creation"]
+        B6 -- "tier 1 · no login" --> B7["Capture"]
+        B6 -- "tier 2 · session-based" --> B8["Capture + label<br/>*adapter wanted*"]
+        B6 -- "unknown host" --> B9["Capture for review"]
     end
 
     HUB[("data/jobs.json<br/>the queue")]
@@ -125,6 +140,7 @@ linkedin-claude-connector/
 │
 └── docs/
     ├── ATS_NOTES.md               ← per-platform form quirks
+    ├── ROADMAP.md                 ← open problems & wanted contributions
     └── SAFETY.md                  ← the guarantees, stated plainly
 ```
 
@@ -328,7 +344,7 @@ GPA, an authorization status), a legal attestation, or a hard boundary below.
 | Situation | What the agent does |
 |---|---|
 | 🤖 **CAPTCHA** | **Stops the run**, checkpoints, reports how far it got. Never solves or bypasses one — no config flag opens this. |
-| 🔐 **Login wall** | LinkedIn auth → stops the run (never types credentials). An *application* login wall → routine skip as `Requires Account Creation`. |
+| 🔐 **Sign-in wall** | LinkedIn auth → stops the run (never types credentials). An *application* sign-in wall → tier-2 handling: applied if you have that adapter enabled and are signed in, quarantined if you aren't, skipped if no adapter exists yet. |
 | ❓ **Missing fact / legal attestation** | **Quarantines the row and continues.** Never guesses a checkable claim, at any autonomy level. |
 | 🧭 **Layout drift** | Re-derives the layout by role and label, verifies against two cards, continues. Quarantines only if it can no longer tell Easy Apply from an external apply. |
 | 🆔 **SSN / ID / payment request** | **Stops the run.** Never required to apply — a page asking is compromised or not an application form. |
@@ -374,15 +390,25 @@ forms. That said:
 
 ## 🤝 Contributing
 
-PRs welcome — especially new ATS adapters (documented as prompt sections, not
-hardcoded selectors), better field mappings, and accessibility fixes.
+PRs welcome, and there is real work available. **[docs/ROADMAP.md](docs/ROADMAP.md)**
+has the open problems; the most valuable one is a **tier-2 adapter**.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and the engineering standards in
-[CLAUDE.md](CLAUDE.md).
+Workday in particular is the largest coverage gap and a genuinely interesting design
+problem: every employer is a separate tenant with a separate account, which breaks the
+one-session-many-applications assumption every tier-1 adapter is built on. It also has
+a real fact-integrity wrinkle — Workday pre-populates from a stored per-tenant profile
+that may be stale, and reconciling that against your config before submitting is an
+unsolved piece. Nobody has cracked it yet. The roadmap lays out the open questions.
 
-**One hard rule for contributors:** no PR may weaken the human-in-the-loop gate, add
-CAPTCHA solving, add credential entry, or add support for an ATS requiring account
-creation. Those are not features awaiting implementation. They are the boundary.
+Also wanted: discovery sources beyond LinkedIn, cross-source dedupe, non-US work
+authorization modelling, a fixture-based replay harness, and accessibility work.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and the standards in [CLAUDE.md](CLAUDE.md).
+
+**The short list of what a PR may not add:** credential entry, account creation,
+CAPTCHA solving or bypass, rate-limit evasion, or fabricated facts on an application.
+Those constrain the agent's behavior and nothing else — **widening platform coverage
+is explicitly encouraged**, including to platforms this MVP skips.
 
 ---
 
