@@ -61,6 +61,9 @@ issue before you write code.
 - [ ] `python3 scripts/validate.py` exits 0
 - [ ] `git status --short` shows none of the three private paths
 - [ ] No real personal data anywhere in the diff (names, emails, phones, addresses)
+- [ ] **No run data** — no employer names, job ids, posting titles, queries, result
+      counts or run dates from a real discovery run. Examples are fully synthetic.
+      Vendor behaviour belongs in docs; your search does not (CLAUDE.md §5.4)
 - [ ] Prompts stayed generic — no hardcoded company, school, or year
 - [ ] If the change is safety-relevant, README **and** the prompt file both updated
 - [ ] Tested in `dry_run` mode against real postings; postings noted in the PR body
