@@ -7,22 +7,25 @@
     "external_ats_found": 24,
     "easy_apply_skipped": 71,
     "tier_2_captured": 19,
-    "unresolved": 4
+    "unresolved": 4,
+    "white_label_resolved": 1,
+    "white_label_unresolved": 0,
+    "conversational_only": 1
   },
   "jobs": [
     {
-      "id": "gh-4315772008",
+      "id": "gh-4000000001",
       "status": "pending",
       "company": "Example Labs",
       "title": "Software Engineer Intern, Summer 2027",
       "location": "New York, NY",
       "workplace_type": "HYBRID",
       "posted_at": "2026-08-28",
-      "linkedin_url": "https://www.linkedin.com/jobs/view/4315772008/",
-      "apply_url": "https://job-boards.greenhouse.io/examplelabs/jobs/4315772008",
-      "apply_url_normalized": "job-boards.greenhouse.io/examplelabs/jobs/4315772008",
+      "linkedin_url": "https://www.linkedin.com/jobs/view/4000000001/",
+      "apply_url": "https://job-boards.greenhouse.io/examplelabs/jobs/4000000001",
+      "apply_url_normalized": "job-boards.greenhouse.io/examplelabs/jobs/4000000001",
       "ats": "greenhouse",
-      "ats_job_id": "4315772008",
+      "ats_job_id": "4000000001",
       "ats_confidence": "high",
       "requires_account": false,
       "notes": "",
@@ -30,7 +33,11 @@
       "applied_at": null,
       "confirmation_screenshot": null,
       "ats_tier": 1,
-      "quarantine_reason": null
+      "quarantine_reason": null,
+      "ats_host": "job-boards.greenhouse.io",
+      "white_label": false,
+      "resolution_hops": [],
+      "apply_shape": "form"
     },
     {
       "id": "ashby-0f2c9d",
@@ -40,7 +47,7 @@
       "location": "Remote (US)",
       "workplace_type": "REMOTE",
       "posted_at": "2026-08-30",
-      "linkedin_url": "https://www.linkedin.com/jobs/view/4318890021/",
+      "linkedin_url": "https://www.linkedin.com/jobs/view/4000000002/",
       "apply_url": "https://jobs.ashbyhq.com/northwind/0f2c9d1a-7b44-4a10-9f31-2c9d1a7b4400",
       "apply_url_normalized": "jobs.ashbyhq.com/northwind/0f2c9d1a-7b44-4a10-9f31-2c9d1a7b4400",
       "ats": "ashby",
@@ -52,7 +59,11 @@
       "applied_at": null,
       "confirmation_screenshot": null,
       "ats_tier": 1,
-      "quarantine_reason": null
+      "quarantine_reason": null,
+      "ats_host": "jobs.ashbyhq.com",
+      "white_label": false,
+      "resolution_hops": [],
+      "apply_shape": "form"
     },
     {
       "id": "skip-4319001233",
@@ -62,7 +73,7 @@
       "location": "Chicago, IL",
       "workplace_type": "ON_SITE",
       "posted_at": "2026-08-27",
-      "linkedin_url": "https://www.linkedin.com/jobs/view/4319001233/",
+      "linkedin_url": "https://www.linkedin.com/jobs/view/4000000003/",
       "apply_url": "https://globex.wd1.myworkdayjobs.com/en-US/Campus/job/Chicago/Summer-Analyst_R-88213",
       "apply_url_normalized": "globex.wd1.myworkdayjobs.com/en-us/campus/job/chicago/summer-analyst_r-88213",
       "ats": "workday",
@@ -75,7 +86,40 @@
       "applied_at": null,
       "confirmation_screenshot": null,
       "ats_tier": 2,
-      "quarantine_reason": null
+      "quarantine_reason": null,
+      "ats_host": "globex.wd1.myworkdayjobs.com",
+      "white_label": false,
+      "resolution_hops": [],
+      "apply_shape": "form"
+    },
+    {
+      "id": "wl-meridian-77c41d02",
+      "status": "skipped",
+      "company": "Meridian Mutual",
+      "title": "Technology Internship, Summer 2027",
+      "location": "Columbus, OH",
+      "workplace_type": "HYBRID",
+      "posted_at": "2026-08-29",
+      "linkedin_url": "https://www.linkedin.com/jobs/view/4000000004/",
+      "apply_url": "https://careers.meridianmutual.example/technology-internship/job/77C41D02",
+      "apply_url_normalized": "careers.meridianmutual.example/technology-internship/job/77c41d02",
+      "ats": null,
+      "ats_host": "careers.meridianmutual.example",
+      "white_label": true,
+      "resolution_hops": [
+        "https://careers.meridianmutual.example/technology-internship/job/77C41D02"
+      ],
+      "ats_tier": null,
+      "apply_shape": "conversational",
+      "ats_job_id": "77C41D02",
+      "ats_confidence": "low",
+      "requires_account": false,
+      "skip_reason": "conversational apply only",
+      "notes": "Conversational apply widget; no manual-apply link offered. See docs/ROADMAP.md.",
+      "quarantine_reason": null,
+      "discovered_at": "2026-09-01T14:02:31Z",
+      "applied_at": null,
+      "confirmation_screenshot": null
     }
   ]
 }
