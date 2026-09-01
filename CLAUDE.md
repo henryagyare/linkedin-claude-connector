@@ -171,7 +171,29 @@ Treat these with the rigor of production code.
 - Scripts are **helpers**, never the automation path — nothing in `scripts/` may drive
   a browser or submit anything.
 
-### 5.4 Documentation
+### 5.4 Never commit run data
+
+Documentation records **vendor behaviour**, never the output of a real run.
+
+| Belongs in the repo | Belongs in gitignored `data/` |
+|---|---|
+| Vendor hostname patterns (`jobs.ashbyhq.com`) | Employer names from your results |
+| UI mechanics, a11y names, ref behaviour | LinkedIn job ids, posting titles, apply URLs |
+| Field-mapping quirks per vendor | Your queries, result counts, run dates |
+| Synthetic examples (`example.com`, invented companies) | Anything traceable to a real posting you saw |
+
+The test: **would this be true for a different user running different queries?** If yes,
+it is platform behaviour. If it is a fact about one run, it is that person's job search.
+
+This is a privacy rule, not a tidiness one. A public repo under a contributor's own name
+that logs their run output discloses what they are targeting, which employers, and when
+they were looking. It is also easy to do by accident — copying a real row into
+`data/jobs.example.json` to "make the example realistic" leaks a job id and title even if
+the company name is changed. Examples must be fully synthetic.
+
+Aggregate distributions with no employer names and no personal dates are fine and useful.
+
+### 5.5 Documentation
 
 - Second person, present tense, plain words. "You" is the job seeker.
 - Every user-facing claim about safety must correspond to an actual instruction in a
@@ -195,6 +217,15 @@ The MVP covers four tier-1 platforms. Both tiers are open for contribution.
    `config/bio.template.json`, and to `TIER_1_KNOWN` in `scripts/validate.py`.
 4. Document quirks in `docs/ATS_NOTES.md`; update the tier table in `README.md`.
 5. **Test in `dry_run` against at least three real postings.** Note which in the PR.
+
+> **Route on the vendor, never the host.** `ats` is the underlying vendor; `ats_host`
+> is the domain landed on. A white-label domain wrapping Greenhouse is applyable by the
+> tier-1 Greenhouse adapter — an adapter that matches on hostname alone will silently
+> skip a large share of real postings.
+
+> **`apply_shape` is orthogonal to tier.** Tier answers "what does it take to reach the
+> form"; shape answers "is it a form at all". A conversational apply is never attempted
+> regardless of tier, because the §7 safeguards all assume a readable field list.
 
 ### 6.2 Tier 2 — session-based
 
