@@ -41,6 +41,14 @@ data/*.json
 *.pdf
 !docs/**/*.pdf
 
+# === Your space: never committed, no exceptions ==========================
+# Anything personal, scratch, or run-related. Unlike data/ and config/ this
+# directory has NO negation rules, so nothing you drop here can leak by
+# accident — no thinking required.
+local/
+scratch/
+notes/
+
 # === Secrets / credentials ====================================================
 .env
 .env.*
