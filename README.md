@@ -47,6 +47,8 @@ widen — not a fixed boundary.
 |---|---|---|
 | **Tier 1** | Public application form, no sign-in | ✅ Greenhouse · Ashby · Lever · BambooHR |
 | **Tier 2** | Needs a session **you** signed into — the agent works inside it, never creates it | 🚧 Open. Workday, iCIMS, SmartRecruiters, Jobvite and others are [wanted contributions](docs/ROADMAP.md) |
+| **White-label** | The employer's own domain wrapping one of the above | 🔎 Resolved one hop during discovery; applyable when the underlying vendor is supported |
+| **Conversational** | Chatbot apply (Paradox/Olivia, "Chat To Apply") | ⏭️ Captured and skipped — a dialogue has no field readback or pre-submit gate |
 | **Unknown** | Unrecognized host | 📋 Captured and logged, so recurring ones surface as adapter candidates |
 
 Discovery captures **all** tiers regardless. Filtering happens at apply time, so
