@@ -311,7 +311,21 @@
         "If a tier-2 site is not already signed in, the row is QUARANTINED \u2014",
         "never a sign-in attempt, never an account creation. Sign in yourself",
         "and re-run; the queue picks it up."
-      ]
+      ],
+      "route_on_vendor_not_host": true,
+      "_route_note": "A white-label domain wrapping a supported vendor IS applyable. Route on the resolved `ats`, never on `ats_host`.",
+      "white_label": {
+        "resolve_during_discovery": true,
+        "max_extra_hops": 1,
+        "prefer_manual_apply_link": true,
+        "skip_if_vendor_unresolved": true
+      },
+      "conversational_apply": {
+        "_README": "Chatbot apply (Paradox/Olivia, Mya, 'Chat To Apply'). A dialogue, not a form \u2014 none of the \u00a77 safeguards apply to it.",
+        "attempt": false,
+        "prefer_manual_apply_escape_hatch": true,
+        "skip_reason": "conversational apply only"
+      }
     },
     "scope": {
       "_README": "Deliberate design choices. Revisitable by the project, unlike hard_boundaries.",
