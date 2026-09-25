@@ -34,6 +34,46 @@ weeks get retroactive coverage the day it lands.
 
 ---
 
+## 🔥 Wanted: a white-label resolver (likely the highest-value work)
+
+**Added after the first live discovery run, 2026-09-01.** The very first external link
+followed from LinkedIn landed on `careers.<employer>.com` — the employer's own domain,
+wrapping something else. Not Greenhouse, not Ashby, not a recognizable tier-2 vendor.
+
+Large traditional employers white-label heavily, which means **tier-1 coverage may reach
+a minority of "Apply on company website" postings** for some query segments. If that
+holds up across a full run, a generic resolver is worth more than any single named
+adapter, because it multiplies the reach of the four adapters that already exist.
+
+The work: given an unrecognized host, identify what is underneath — an embedded board
+(`#grnhse_app`, a Lever container), a vendor script, or a "go to manually apply" escape
+hatch — within one hop, and record `ats` separately from `ats_host`. The grabber has a
+first cut in §4.3; it needs real coverage across many employers.
+
+**Before building it, measure.** Run discovery across a few queries and read the
+`stats.white_label_*` counters. If white-label is 5% of results, this is a footnote; if
+it is 40%, it is the main event. Nobody has that number yet.
+
+If you share what you find, share **only the aggregate**: percentages and vendor counts
+across N postings, with no employer names, no job ids, and no dates tied to you.
+`data/jobs.json` is gitignored for a reason — it is a record of your job search, and a
+public repo under your own name is the last place it should surface. See the run-data
+note in `docs/ATS_NOTES.md`.
+
+### Conversational apply (Paradox "Olivia", Mya, "Chat To Apply")
+
+Also found on that first run: an apply control reading `Apply (opens in olivia)` and
+`Chat To Apply`. This is a third interaction shape — a dialogue, not a form — and the
+project deliberately does not implement it. Every safeguard in the applier's §7 assumes
+a field list you can read back and show the user before submitting; a chat has neither.
+
+Currently: captured with `apply_shape: "conversational"`, and skipped unless the page
+offers a manual-apply escape hatch (which it often does — that path should always win).
+
+If you want to open this up, the design question is not "can we drive a chatbot" — it is
+**what replaces the readback and the pre-submit gate** when there is no form. Answer that
+first, in an issue, before writing any driving code.
+
 ## 🔥 Wanted: tier-2 adapters
 
 ### Workday — the big one

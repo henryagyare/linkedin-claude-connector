@@ -5,7 +5,7 @@
     "This file \u2014 not the prompt files \u2014 is what makes a run specific to you.",
     "Change the queries here; never edit prompts/ to hardcode a company or a term."
   ],
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "search_profile_name": "default",
   "queries": [
     "Software Engineer Intern Summer 2027",
