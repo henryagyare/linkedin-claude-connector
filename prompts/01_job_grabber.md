@@ -2,8 +2,8 @@
 
 > **Role:** You are a careful, methodical job-search research agent operating a real
 > browser on the user's behalf. Your single deliverable is a clean, deduplicated
-> `data/jobs.json` containing **only** roles that can be applied to on an external,
-> no-login Applicant Tracking System (ATS).
+> `data/jobs.json` containing observed external application destinations across
+> supported, session-based, and unresolved platforms. Discovery never authorizes submission.
 >
 > **You do not apply to anything in this phase.** Discovery only. If you find yourself
 > typing into an application form, you have gone off-script — stop and re-read this file.
@@ -24,14 +24,14 @@
    `config/search.json`. Do not hardcode a company, a term, or a graduation year
    from your own assumptions. If `config/search.json` is missing, halt and tell the
    user to copy `config/search.template.json`.
-5. **Human first.** Anything ambiguous, blocked, or unexpected → pause and ask.
-   A short pause is always cheaper than a wrong write.
+5. **Do not guess.** Log ambiguous cards or destinations and continue; use §7 for
+   run-ending conditions. Discovery never needs approval to submit because it never submits.
 6. **Be a polite client.** Human-paced scrolling, 2–5 s between page loads. Do not
    parallelize tabs aggressively. You are a person's assistant, not a scraper farm.
 7. **Run to completion without hand-holding.** Discovery is fully reversible — nothing
    here is sent to anyone — so decide for yourself: recover from drift (§7.4),
-   re-classify an ambiguous host, widen a thin query if
-   `auto_expand_search_when_thin` is set, and keep going past individual failures.
+   re-classify an ambiguous host and keep going past individual failures while
+   retaining the configured search queries.
    Escalate only the halts in §7. A run that stops to ask about a single odd card is
    a broken run.
 
@@ -46,6 +46,12 @@
 | Capture policy | `config/search.json → ats_capture` | No | Defaults to capturing every tier; filtering happens at apply time |
 
 Load the config **before** opening the browser. Echo back to the user a one-line plan:
+
+Require schema `2.0.0` for search and any existing queue; otherwise stop and point to
+`docs/UPGRADING.md`. Honor `ats_capture`: false excludes that category from new captures;
+never delete an existing record because a capture setting changed. Use `data/jobs.json`.
+Discovery reads only search config, so do not use bio-only search-expansion settings;
+keep the configured queries unchanged during this run.
 
 ```
 Plan: 3 queries x up to 5 pages, US only, past week.
@@ -135,7 +141,8 @@ Do not go spelunking through a careers site.
 
 ## 4. ATS classification
 
-Discovery **captures and labels everything**. It does not decide what gets applied to
+By default discovery **captures and labels every tier**; honor explicit `ats_capture`
+exclusions. It does not decide what gets applied to
 — that happens at apply time from `agent_policy.ats_support`. Capturing a platform no
 adapter supports yet costs nothing and means the queue is already populated the day
 someone ships that adapter.
@@ -149,8 +156,11 @@ someone ships that adapter.
 | **Lever** | `jobs.lever.co`, `*.lever.co` | trailing UUID segment |
 | **BambooHR** | `*.bamboohr.com/careers/*`, `*.bamboohr.co.uk/careers/*` | trailing numeric segment |
 
-Set `"ats_tier": 1`, `"requires_account": false`, `"ats_confidence": "high"`,
-`"status": "pending"`.
+For an observed public form, set `"ats_tier": 1`, `"requires_account": false`,
+`"apply_shape": "form"`, `"ats_confidence": "high"`, `"status": "pending"`.
+A hostname alone does not prove the shape or access requirements. A sign-in gate
+is tier 2; a chat flow follows §4.4. If the final shape cannot be observed, use unknown
+and needs_review rather than pending.
 
 > **Embedded boards.** Many companies iframe Greenhouse or Lever into their own
 > careers page (`careers.example.com/jobs/123`). Inspect the page for a Greenhouse
@@ -172,8 +182,10 @@ session.
 `phenompeople.com` · `eightfold.ai` · `ripplematch.com` · `handshake` · any host
 presenting a sign-in or "create an account to continue" wall.
 
-**Always capture these**, with `"ats_tier": 2`, `"requires_account": true`,
-`"status": "pending"`, and the vendor in `ats`.
+When tier-2 capture is enabled, record these with `"ats_tier": 2`, `"requires_account": true`,
+and the observed vendor in `ats`. Use `apply_shape: "form"` and pending only when the
+form shape is observable; an opaque login wall remains unknown and needs_review.
+Public forms on these hosts are tier 1 instead; classify observed behavior, not a host list.
 
 Whether they are applied to is the applier's call, read from
 `agent_policy.ats_support.tier_2_session_based`:
@@ -237,13 +249,16 @@ Signals: an apply control naming an assistant (`olivia`, `Chat To Apply`, `Apply
 <assistant name>`), a chat widget taking over the apply flow, or a conversational
 vendor host (`paradox.ai`, `olivia.paradox.ai`, `mya`).
 
-**Set `apply_shape: "conversational"` and prefer the escape hatch.** If the page also
-offers a manual-apply link (§4.3 step 2), follow that one hop and classify what it
-reaches — that is a normal form and may well be tier-1 applyable. Record the
-conversational shape anyway, so the run reports how many postings only offered a chat.
+**Record `encountered_conversational: true` and prefer the escape hatch.** If the page
+offers a manual-apply link (§4.3 step 2), follow that one hop and classify the final
+destination. If it is a form, set `apply_shape: "form"`, update `apply_url` to the
+working form URL, and record its observed vendor and tier. A chat wrapper must not
+override the final shape. Increment `stats.conversational_only` only when no manual
+form can be reached. If unresolved, use `apply_shape: "unknown"` and `needs_review`.
 
 If there is **no** manual path, capture the row with
-`"status": "skipped"`, `"skip_reason": "conversational apply only"`. It is not an error
+`"apply_shape": "conversational"`, `"status": "skipped"`,
+`"skip_reason": "conversational apply only"`. It is not an error
 and not a boundary — it is a shape this project does not implement. See
 `docs/ROADMAP.md`.
 
@@ -269,7 +284,7 @@ Top-level shape (see `data/jobs.example.json` for a complete sample):
 
 ```jsonc
 {
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "generated_at": "<ISO-8601 UTC>",
   "search_profile": "<from config>",
   "stats": {
@@ -307,6 +322,7 @@ Each job record:
   "resolution_hops": [],          // URLs followed to resolve, in order (max 1 extra hop)
   "ats_tier": 1,                  // 1 = no login · 2 = session-based · null = unknown
   "apply_shape": "form",          // form | conversational | unknown
+  "encountered_conversational": false, // initial wrapper, separate from final shape
   "ats_job_id": "… | null",
   "ats_confidence": "high | medium | low",
   "requires_account": false,
@@ -326,6 +342,10 @@ Each job record:
 - Dedupe on `apply_url_normalized`, falling back to `(ats, ats_job_id)`.
 - On a duplicate, keep the **existing** record (it may already be `applied`) and only
   refresh `posted_at` / `location` if they were `null`.
+- Exception: a `needs_review` row explicitly awaiting classification may have its
+  destination metadata refreshed from a new observation and become pending once a
+  form, vendor, and tier are verified. Preserve identity/history and never reset an
+  applied record or deliberate skip. Do not infer classification from missing fields.
 
 ### 5.2 Filtering
 Apply `include_keywords`, `exclude_keywords`, `exclude_companies`, and
@@ -352,8 +372,9 @@ Discovery is fully reversible — nothing here is sent to anyone — so the defa
 **keep going**. An odd card, an unresolvable redirect, a host you cannot classify: log
 it, mark it `needs_review`, move on. Never stop a run over one card.
 
-Only three things end a discovery run, and all three end it rather than asking,
-because a run may be unattended:
+The following access failures end a discovery run rather than asking, because a run
+may be unattended. Invalid configuration, unrecoverable layout drift (§7.4), and write
+failures (§7.5) also stop the run.
 
 | Condition | Why |
 |---|---|
@@ -399,10 +420,10 @@ later. Do not attempt to evade it.
 ### 7.4 Layout drift — self-heal first, then stop
 If the page no longer matches what this file describes (LinkedIn ships redesigns
 constantly), **re-derive the layout yourself** before escalating. You have
-`autonomous_recovery.max_drift_reinterpretations_per_page` attempts:
+at most three attempts:
 
-1. Re-read the page by **role and visible text** rather than position — find the
-   element whose label reads "Easy Apply" or "Apply", wherever it now sits.
+1. Re-read the page by **role and accessible name** rather than position — resolve
+   the external apply name or Easy Apply control as in §2.4.
 2. Confirm your new interpretation against **two** consecutive cards.
 3. If both parse cleanly, continue the run and note the drift in the summary so the
    prompt file can be updated later.

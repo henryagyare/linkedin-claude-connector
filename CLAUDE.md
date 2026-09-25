@@ -18,7 +18,7 @@ long-running service, no scraper, no database, no server.
 
 ```
 config/*.json   →  prompts/01_job_grabber.md  →  data/jobs.json
-data/jobs.json  →  prompts/02_job_applier.md  →  filled forms → human approval → submit
+data/jobs.json  →  prompts/02_job_applier.md  →  readback → configured authorization → submit
 ```
 
 If you are about to write a Playwright script that logs into LinkedIn, you have
@@ -82,7 +82,7 @@ implemented. If a request asks for one, say no and explain which invariant it hi
    inside a session the human established is explicitly fine — that is how LinkedIn
    has always worked, and it is the model tier-2 adapters use. The agent uses a
    session; it never creates one.
-4. **No CAPTCHA solving or evasion.** Detect → pause → hand to the human → wait.
+4. **No CAPTCHA solving or evasion.** Detect → checkpoint → stop → human resolves manually.
    Solver services and evasion heuristics are out of bounds permanently.
 5. **No Easy Apply.** The LinkedIn-internal path is excluded by design, not by
    omission.
@@ -120,6 +120,11 @@ git check-ignore -v config/bio.json data/resume.pdf data/jobs.json
 git status --short          # none of the three private paths may appear
 python3 scripts/validate.py # must exit 0
 ```
+
+When preparing code changes while private files await a schema upgrade, use
+`python scripts/validate.py --repository-only`: shipped-file checks and the Git/PII
+scan still run, including staged content. This is not a live-run preflight; full
+validation must pass before applying. Upgrade instructions are in `docs/UPGRADING.md`.
 
 ### Branch & commit conventions
 
@@ -159,8 +164,8 @@ Treat these with the rigor of production code.
   major for renames or removals, and note the change in the PR description.
 - Dummy data is **obviously** dummy: `Jordan Rivera`, `example.com`, `555 013 4477`.
   Never a real name, a real address, or a real phone number.
-- `null` means unknown. `""` means intentionally blank. `"ASK_ME"` means the agent
-  must stop and ask. Do not blur those three.
+- `null` means unknown. `""` means intentionally blank. `"ASK_ME"` means input is
+  needed. Unresolved required answers follow escalation.mode; optional blanks stay blank.
 - Additive changes only where possible — a user's existing `bio.json` should keep
   working after an upgrade.
 
@@ -231,7 +236,8 @@ The MVP covers four tier-1 platforms. Both tiers are open for contribution.
 3. Add the slug to `agent_policy.ats_support.tier_1_no_login` in
    `config/bio.template.json`, and to `TIER_1_KNOWN` in `scripts/validate.py`.
 4. Document quirks in `docs/ATS_NOTES.md`; update the tier table in `README.md`.
-5. **Test in `dry_run` against at least three real postings.** Note which in the PR.
+5. **Test in `dry_run` against at least three real postings.** Keep posting identities
+   private; report aggregate coverage and synthetic scenarios in the PR.
 
 > **Route on the vendor, never the host.** `ats` is the underlying vendor; `ats_host`
 > is the domain landed on. A white-label domain wrapping Greenhouse is applyable by the
@@ -268,7 +274,10 @@ before starting; several of these are unsolved and worth an issue first.
 
 ## 7. Testing
 
-There is no unit-test suite for prompt behavior; the tests are structured manual runs.
+Run `python -m unittest discover -s tests -v` for offline validator regressions, and
+`python scripts/validate.py` for configuration and Git privacy checks. CI runs both
+on Windows and Linux with Python 3.9 and 3.13. Browser behavior still needs structured
+manual dry runs; unit tests do not establish that a live form works.
 
 **Grabber checklist**
 - [ ] An Easy Apply posting is skipped without a click
@@ -282,16 +291,16 @@ There is no unit-test suite for prompt behavior; the tests are structured manual
 
 **Applier checklist**
 - [ ] Preflight fails cleanly on a missing `bio.json` or resume
-- [ ] A required field with no mapping triggers a stop-and-ask
+- [ ] A required field with no mapping follows the configured escalation mode
 - [ ] The review block lists every filled field plus what was left blank
 - [ ] `dry_run: true` refuses to submit even when the human answers `yes`
 - [ ] `skip` and `stop run` do exactly what they say
-- [ ] A post-submit validation error re-runs the **full** review gate
+- [ ] A post-submit validation error re-runs authorization; unknown outcomes never auto-retry
 - [ ] EEO fields remain "Prefer not to say" unless `bio.json` says otherwise
 
 ---
 
 ## 8. When in doubt
 
-Ask the human. This repository's whole thesis is that a five-second question is
-cheaper than a wrong application sent under someone's name.
+For repository development, clarify unresolved intent. For application runs, follow the
+configured escalation mode and authorization policy; never invent a missing answer.

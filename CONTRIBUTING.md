@@ -41,6 +41,7 @@ argument. Open an issue rather than a PR.
 cp config/bio.template.json config/bio.json      # dummy data is fine
 cp config/search.template.json config/search.json
 python3 scripts/validate.py
+python3 -m unittest discover -s tests -v
 ```
 
 ## Good first contributions
@@ -66,9 +67,10 @@ issue before you write code.
       Vendor behaviour belongs in docs; your search does not (CLAUDE.md §5.4)
 - [ ] Prompts stayed generic — no hardcoded company, school, or year
 - [ ] If the change is safety-relevant, README **and** the prompt file both updated
-- [ ] Tested in `dry_run` mode against real postings; postings noted in the PR body
+- [ ] For adapter changes, tested in `dry_run`; publish aggregate coverage and synthetic
+      scenarios, keeping actual posting identities in private run artifacts
 
 ## Reporting a safety issue
 
-If you find a path where the agent could submit without approval, enter credentials,
+If you find a path where the agent could bypass its configured authorization, enter credentials,
 or leak PII, please open an issue marked **SAFETY** — those jump the queue.

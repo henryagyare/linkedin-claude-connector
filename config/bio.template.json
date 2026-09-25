@@ -1,13 +1,12 @@
 {
-  "$schema": "./bio.schema.json",
   "_README": [
     "Copy this file to config/bio.json and replace every value with your own.",
     "config/bio.json is hard-blocked by .gitignore and must never be committed.",
-    "Any field you leave as null, \"\", or the literal string \"ASK_ME\" will cause",
-    "the applier agent to STOP and ask you before it types anything into a form.",
+    "null means unknown, an empty string means intentionally blank, and ASK_ME means",
+    "an answer needs your input. Required unresolved answers follow escalation.mode.",
     "Never invent an answer that is not in this file. That rule is absolute."
   ],
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "identity": {
     "first_name": "Jordan",
     "middle_name": "",
@@ -192,7 +191,7 @@
       "SUPERVISED": "Approve each application one at a time. Use on an ATS you have never watched it handle.",
       "BATCH_REVIEW": "Agent fills the whole batch autonomously, then presents ONE review sheet you approve per-row. Safe default for a new clone.",
       "TRUSTED_BATCH": "Like BATCH_REVIEW, but auto-approves rows where every field resolved cleanly. Only flagged rows reach you.",
-      "AUTOPILOT": "Submits clean rows unattended. Never blocks the run to ask a question. Anything undecidable is quarantined and waits for you in the audit sheet afterward."
+      "AUTOPILOT": "Submits eligible rows without approval prompts. Unresolved answers follow escalation.mode; the full audit is available afterward."
     },
     "escalation": {
       "_README": [
@@ -246,7 +245,6 @@
       "max_drift_reinterpretations_per_page": 3,
       "resolve_ambiguous_selects": true,
       "infer_optional_fields_from_resume": true,
-      "auto_expand_search_when_thin": true,
       "auto_dedupe_and_reclassify": true,
       "draft_cover_letter_when_required": true,
       "draft_open_ended_answers": true,

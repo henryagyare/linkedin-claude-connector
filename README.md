@@ -2,15 +2,15 @@
 
 # 🔗 linkedin-claude-connector
 
-**Find real jobs on LinkedIn. Apply on the company's actual ATS. Never submit without you.**
+**Find jobs on LinkedIn. Apply on the employer's ATS under your chosen approval policy.**
 
 A free, open-source agent harness that pairs **Claude Code** and **Claude Cowork** with
 your own browser to discover external job postings on LinkedIn and fill out
-applications on **Greenhouse, Ashby, Lever, and BambooHR** — pausing for your explicit
-approval before every single submit.
+applications on **Greenhouse, Ashby, Lever, and BambooHR**. Batch review is the default;
+individual approval and explicitly configured automatic submission are also supported.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-black.svg)](LICENSE)
-[![Human in the loop](https://img.shields.io/badge/submits-human--approved-brightgreen.svg)](#-the-human-in-the-loop-gate)
+[![Review policy](https://img.shields.io/badge/default-batch--review-brightgreen.svg)](#-the-human-in-the-loop-gate)
 [![No Easy Apply](https://img.shields.io/badge/LinkedIn%20Easy%20Apply-excluded-red.svg)](#-scope)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-blue.svg)](CONTRIBUTING.md)
 
@@ -25,10 +25,11 @@ they get accounts banned, and they hand a stranger's script your personal data.
 
 This project takes the opposite position:
 
-- **You stay in the loop.** The agent fills the form; *you* click yes. Every time.
-- **Your data never leaves your machine.** `bio.json` and your resume are hard-blocked
-  from version control by design.
-- **Only honest surfaces.** Public, no-login application forms. No credential entry,
+- **You set the approval policy.** Review each application, review a batch, or explicitly
+  configure automatic submission of eligible rows. Every submission has a saved readback.
+- **Private files stay out of Git.** Your bio, resume, queue, and run artifacts are
+  gitignored. The agent/browser processes data and sends application data to employers.
+- **Existing browser access only.** The shipped adapters handle public forms. No credential entry,
   no CAPTCHA solving, no account creation, no LinkedIn Easy Apply.
 - **Generic by construction.** The prompts know nothing about you. Your
   `config/search.json` and `config/bio.json` decide everything — the same repo works
@@ -51,8 +52,9 @@ widen — not a fixed boundary.
 | **Conversational** | Chatbot apply (Paradox/Olivia, "Chat To Apply") | ⏭️ Captured and skipped — a dialogue has no field readback or pre-submit gate |
 | **Unknown** | Unrecognized host | 📋 Captured and logged, so recurring ones surface as adapter candidates |
 
-Discovery captures **all** tiers regardless. Filtering happens at apply time, so
-enabling a new adapter retroactively covers everything you already discovered.
+Discovery captures **all** tiers by default; `ats_capture` can narrow that scope.
+Application routing uses enabled, implemented adapters. Later adapters can reactivate
+explicit no-adapter skips; applied jobs and deliberate user skips remain unchanged.
 
 **What the agent never does**, at any tier or autonomy level: enter credentials, create
 accounts, solve or bypass CAPTCHAs, evade rate limits, supply an SSN / government ID /
@@ -94,8 +96,8 @@ flowchart LR
         C1["Open apply_url"] --> C2["Map fields ← bio.json"]
         C2 --> C3["Upload resume"]
         C3 --> C4["📸 Screenshot + readback"]
-        C4 --> C5{{"HUMAN APPROVAL"}}
-        C5 -- yes --> C6["Submit once"]
+        C4 --> C5{{"CONFIGURED AUTHORIZATION"}}
+        C5 -- "authorized, not dry-run" --> C6["Submit once"]
         C5 -- "skip / edit" --> C7["Log, no submit"]
     end
 
@@ -129,7 +131,7 @@ linkedin-claude-connector/
 │
 ├── prompts/
 │   ├── 01_job_grabber.md          ← steering file: LinkedIn discovery → jobs.json
-│   └── 02_job_applier.md          ← steering file: jobs.json → filled forms → your approval
+│   └── 02_job_applier.md          ← jobs.json → filled forms → configured authorization
 │
 ├── data/
 │   ├── jobs.example.json          ← the output schema, with samples
@@ -166,6 +168,9 @@ cd linkedin-claude-connector
 
 ### 2. Create your private config
 
+Upgrading an existing checkout? Follow [UPGRADING.md](docs/UPGRADING.md) for schema
+`2.0.0`; preserve your private answers, operating policy, and application history.
+
 ```bash
 cp config/bio.template.json  config/bio.json
 cp config/search.template.json config/search.json
@@ -174,8 +179,8 @@ cp config/search.template.json config/search.json
 Open `config/bio.json` and replace every value with your own.
 
 > **Leave a field as `"ASK_ME"` on purpose** for anything you want to answer by hand
-> each time (e.g. "Why do you want to work here?"). The agent will stop and ask
-> instead of inventing something.
+> each time. Required unresolved answers quarantine by default; `BLOCK_AND_ASK` asks
+> during the run. Optional fields may remain blank. No missing fact is invented.
 
 Then set your targeting in `config/search.json`:
 
@@ -249,8 +254,9 @@ Read prompts/02_job_applier.md and work the queue in data/jobs.json.
 Start in dry-run for the first three.
 ```
 
-For each job the agent opens the form, maps your `bio.json` onto it field by field,
-uploads your resume, screenshots the filled form, and then stops:
+For each job the agent maps `bio.json` onto the form, uploads your resume, and writes
+a readback and screenshots. The default `BATCH_REVIEW` presents one sheet after filling
+up to 12 forms. With `SUPERVISED`, the individual review looks like this:
 
 ```
 ── REVIEW: Example Labs — Software Engineer Intern, Summer 2027 ──
@@ -287,7 +293,7 @@ Set the dial with `agent_policy.autonomy_level`:
 | `SUPERVISED` | Fills one form, stops | Each application, one at a time |
 | `BATCH_REVIEW` **(default)** | Fills the whole batch uninterrupted, writes a review sheet | All of them, on one sheet |
 | `TRUSTED_BATCH` | Same, but auto-approves rows where *every* field resolved cleanly from `bio.json` | Only the rows that needed a judgment call |
-| `AUTOPILOT` | Submits clean rows unattended, never pausing | Nothing during the run — a full audit sheet after |
+| `AUTOPILOT` | Submits eligible rows without approval prompts; unresolved answers follow escalation.mode | Full audit sheet after |
 
 `TRUSTED_BATCH` auto-approves a row only if every required field came straight from
 your config, nothing was drafted, nothing was substituted, the resume upload was
@@ -321,9 +327,10 @@ Account required : 5    — expected, not errors
    Fix the first two in bio.json and they clear, along with future rows.
 ```
 
-Only five things stop a run outright, and they stop rather than ask because nobody may
-be watching: a CAPTCHA, a credential wall, a request for an SSN or payment details, a
-rate-limit warning, or a broken config. Everything else quarantines. If quarantines
+Access/config failures stop a run outright rather than ask because nobody may
+be watching: a CAPTCHA, an expired required browser session, a request for an SSN or payment details, a
+rate-limit warning, or a broken config. Failed audit or queue writes also stop before
+submission. Other unresolved answers quarantine; closed postings are marked failed. If quarantines
 pass `max_quarantined_before_abort`, the run aborts — that many failures means a
 systemic problem, and burning the queue against it wastes the queue.
 
@@ -333,9 +340,9 @@ No interruption for any of this — it is all reversible:
 
 retrying dropped field input (React forms drop it constantly) · re-deriving a changed
 page layout by role and label · picking an unambiguous dropdown match (`TX` → `Texas`) ·
-**drafting cover letters and open-ended answers** from your resume, grounded only in
+**drafting cover letters and open-ended answers when enabled** from your resume, grounded only in
 facts already in your config · filling optional fields from your resume · re-ordering
-the queue by deadline · widening a thin search · deduping and reclassifying · carrying
+the queue by deadline · deduping and reclassifying · carrying
 on past a dead posting.
 
 Escalation is reserved for what is genuinely undecidable: a missing **fact** (a date, a
@@ -350,7 +357,6 @@ GPA, an authorization status), a legal attestation, or a hard boundary below.
 | ❓ **Missing fact / legal attestation** | **Quarantines the row and continues.** Never guesses a checkable claim, at any autonomy level. |
 | 🧭 **Layout drift** | Re-derives the layout by role and label, verifies against two cards, continues. Quarantines only if it can no longer tell Easy Apply from an external apply. |
 | 🆔 **SSN / ID / payment request** | **Stops the run.** Never required to apply — a page asking is compromised or not an application form. |
-| 🚨 **SSN / ID / payment request** | Hard stop. These are never required to apply. |
 | ⏱️ **Rate limit** | Checkpoints, reports, stops. Never tries to evade it. |
 
 ---
@@ -366,8 +372,12 @@ Three files hold everything personal, and all three are blocked at the VCS bound
 | `data/jobs.json` | Your search results and application history | 🔒 gitignored |
 
 Plus, defensively: `**/bio.json`, `**/resume.pdf`, `**/jobs.json`, `data/screenshots/`,
-`.env`, and every common credential filename. Nothing is uploaded anywhere — the agent
-runs on your machine, in your browser, against your session.
+`.env`, and common credential filenames. This repo has no application server or telemetry.
+Your configured agent service and browser process the content, and resume uploads and
+application submissions send data to employers. Gitignore does not prevent those transfers
+or detect personal data copied into public files. The validator scans tracked file content
+against identifying bio values, including templates and staged content; it is not a general
+detector for all sensitive data.
 
 **Before your first push,** run `git status` and confirm none of those three appear.
 
@@ -384,9 +394,10 @@ forms. That said:
   slow human — human-paced scrolling, no parallel scraping, no CAPTCHA evasion, no
   credential automation — but **you are accepting the risk to your own account.**
   Keep runs small.
-- Quality beats volume, every time. `max_applications_per_run` defaults to 10 for a
-  reason.
-- Never point this at a platform requiring an account. That exclusion is a feature.
+- The template caps a run at 60 applications, in batches of 12, with at least 8 seconds
+  between applications. Lower the cap for initial dry runs.
+- Only enable implemented adapters. Session-based adapters remain future work and
+  must use sessions you establish manually.
 
 ---
 

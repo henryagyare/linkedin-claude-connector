@@ -12,6 +12,7 @@
 config/bio.json
 data/resume.pdf
 data/jobs.json
+data/jobs.json.tmp
 
 # Defense in depth: block the same files no matter where they end up,
 # and block sibling variants people commonly create by hand.
