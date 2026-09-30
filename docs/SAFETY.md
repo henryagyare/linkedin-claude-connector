@@ -9,7 +9,7 @@ yourself rather than trusting this page.
 | Guarantee | Enforced in |
 |---|---|
 | Never invent a **fact** — dates, GPA, work authorization, experience, salary — at any autonomy level | `02_job_applier.md` §0.2, §6.3 |
-| Never submit a row whose required facts did not come from your config; quarantine it instead | `02_job_applier.md` §7.4 |
+| Required facts trace to config or explicit one-off answers; automatic submission requires config-backed facts | `02_job_applier.md` §7.1, §7.4 |
 | Never submit a row without writing a full readback to disk first | `02_job_applier.md` §1.1, §7.4 |
 | Never substitute a voluntary EEO answer | `02_job_applier.md` §0.4, §4 |
 | Never raise its own autonomy level or escalation mode above your config | `02_job_applier.md` §7.5 |
@@ -20,29 +20,31 @@ yourself rather than trusting this page.
 | Never submit a tier-2 platform's pre-populated values without reconciling them against your config | `02_job_applier.md` §6.2 |
 | Never supply an SSN, government ID, or payment information | `02_job_applier.md` §6.6 |
 | Never change a voluntary EEO answer away from your stated preference | `02_job_applier.md` §0.4, §4 |
-| Never commit your PII | `.gitignore` (hard-blocked, defense in depth) |
+| Private paths are gitignored; tracked content is scanned for identifying bio values | `.gitignore`, `scripts/validate.py` (limited detection, not a guarantee against every leak) |
 
 ## What it does when something goes wrong
 
-Every abnormal condition resolves to the same shape: **screenshot → stop → tell the
-human exactly what is on screen and what is needed → wait.** No retry loops, no
-workarounds, no silent continuation.
+Hard stops checkpoint and end the run. Recoverable failures are logged and the queue
+continues. Unresolved answers quarantine under `QUARANTINE_AND_CONTINUE`; they ask for
+input under `BLOCK_AND_ASK`. Required submission approvals are independent of escalation.
 
 | Condition | Behavior |
 |---|---|
-| CAPTCHA / bot check | Pause, browser stays open, you solve it, reply `resume`; state re-verified before continuing |
-| LinkedIn login wall | Pause, you sign in manually; the agent never types credentials |
+| CAPTCHA / bot check | Checkpoint and stop; the user resolves it manually, and state is re-verified on resume |
+| LinkedIn login wall | Checkpoint and stop; the user signs in manually before another run |
 | Application sign-in wall | Tier-2 handling: applied if you enabled that adapter and are signed in, quarantined if you are not, skipped if no adapter exists yet. Never a sign-in attempt. |
 | Unmapped required field | Prose and unambiguous selects resolved autonomously and flagged; a missing **fact** or legal attestation quarantines the row. One-off answers are used once and never written into `bio.json` |
 | Page layout drift | Re-derived by role and label, verified against two cards; stops only when the Easy Apply / external fork becomes uncertain |
-| Company/title mismatch | Mark `needs_review`, never fill the form |
+| Company/title mismatch | Quarantine, never fill the form |
 | Rate limit | Checkpoint, report, stop — never evade |
-| Write failure | Keep results in memory, report, offer the JSON inline |
+| Readback or queue write failure | Stop before submission; report the failed write |
+| Uncertain submission outcome | Quarantine for human reconciliation; never automatically retry |
 
 ## Data handling
 
-- Everything runs on your machine, in your browser, against your own session.
-- Nothing is uploaded anywhere. There is no server and no telemetry.
+- Files and browser control are local; the configured agent service processes content.
+- This repo has no application server or telemetry. Resume uploads and applications
+  send data to employers. Gitignore protects version control, not these transfers.
 - `config/bio.json`, `data/resume.pdf`, and `data/jobs.json` are gitignored three ways:
   by exact path, by `**/` glob, and by directory rule.
 - Screenshots taken for the review gate live in `data/screenshots/` and are gitignored.
@@ -53,13 +55,14 @@ workarounds, no silent continuation.
   block before typing `yes`.
 - LinkedIn's Terms of Service restrict automated access. The agent behaves like a slow
   human, but the account risk is yours. Keep runs small.
-- Quality beats volume. `max_applications_per_run` defaults to 10 deliberately.
+- The template cap is 60 applications, batch size 12, and minimum spacing 8 seconds.
+  Lower the cap for an initial dry run.
 
 ## A note on autonomy
 
 This project supports fully unattended operation. At `AUTOPILOT` the agent submits
-applications without asking, and at `QUARANTINE_AND_CONTINUE` it never interrupts a
-run — it parks what it cannot resolve and hands you the pile at the end. That is a
+eligible applications without approval. `QUARANTINE_AND_CONTINUE` parks unresolved
+answers; it does not bypass approvals required by the other autonomy levels. This is a
 supported configuration, not a workaround.
 
 What the dial does not reach is **factual integrity**. The agent will write your cover

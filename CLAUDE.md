@@ -18,7 +18,7 @@ long-running service, no scraper, no database, no server.
 
 ```
 config/*.json   →  prompts/01_job_grabber.md  →  data/jobs.json
-data/jobs.json  →  prompts/02_job_applier.md  →  filled forms → human approval → submit
+data/jobs.json  →  prompts/02_job_applier.md  →  readback → configured authorization → submit
 ```
 
 If you are about to write a Playwright script that logs into LinkedIn, you have
@@ -45,7 +45,8 @@ purpose.
 | `data/jobs.json` | Generated queue + application history | 🔒 **never** |
 | `data/resume.pdf` | The user's resume | 🔒 **never** |
 | `data/screenshots/` | Review + confirmation captures | 🔒 never |
-| `scripts/validate.py` | Offline config/queue validation | ✅ |
+| `scripts/validate.py` | Offline config/queue validation + PII leak scan | ✅ |
+| `local/`, `scratch/`, `notes/` | Your space — runs, personal files, scratch | 🔒 **never** |
 | `docs/ATS_NOTES.md` | Per-platform form quirks | ✅ |
 | `docs/ROADMAP.md` | Open problems & wanted contributions | ✅ |
 | `docs/SAFETY.md` | The guarantees, stated plainly | ✅ |
@@ -81,7 +82,7 @@ implemented. If a request asks for one, say no and explain which invariant it hi
    inside a session the human established is explicitly fine — that is how LinkedIn
    has always worked, and it is the model tier-2 adapters use. The agent uses a
    session; it never creates one.
-4. **No CAPTCHA solving or evasion.** Detect → pause → hand to the human → wait.
+4. **No CAPTCHA solving or evasion.** Detect → checkpoint → stop → human resolves manually.
    Solver services and evasion heuristics are out of bounds permanently.
 5. **No Easy Apply.** The LinkedIn-internal path is excluded by design, not by
    omission.
@@ -119,6 +120,11 @@ git check-ignore -v config/bio.json data/resume.pdf data/jobs.json
 git status --short          # none of the three private paths may appear
 python3 scripts/validate.py # must exit 0
 ```
+
+When preparing code changes while private files await a schema upgrade, use
+`python scripts/validate.py --repository-only`: shipped-file checks and the Git/PII
+scan still run, including staged content. This is not a live-run preflight; full
+validation must pass before applying. Upgrade instructions are in `docs/UPGRADING.md`.
 
 ### Branch & commit conventions
 
@@ -158,8 +164,8 @@ Treat these with the rigor of production code.
   major for renames or removals, and note the change in the PR description.
 - Dummy data is **obviously** dummy: `Jordan Rivera`, `example.com`, `555 013 4477`.
   Never a real name, a real address, or a real phone number.
-- `null` means unknown. `""` means intentionally blank. `"ASK_ME"` means the agent
-  must stop and ask. Do not blur those three.
+- `null` means unknown. `""` means intentionally blank. `"ASK_ME"` means input is
+  needed. Unresolved required answers follow escalation.mode; optional blanks stay blank.
 - Additive changes only where possible — a user's existing `bio.json` should keep
   working after an upgrade.
 
@@ -171,7 +177,43 @@ Treat these with the rigor of production code.
 - Scripts are **helpers**, never the automation path — nothing in `scripts/` may drive
   a browser or submit anything.
 
-### 5.4 Documentation
+### 5.4 Never commit run data
+
+Documentation records **vendor behaviour**, never the output of a real run.
+
+| Belongs in the repo | Belongs in gitignored `data/` |
+|---|---|
+| Vendor hostname patterns (`jobs.ashbyhq.com`) | Employer names from your results |
+| UI mechanics, a11y names, ref behaviour | LinkedIn job ids, posting titles, apply URLs |
+| Field-mapping quirks per vendor | Your queries, result counts, run dates |
+| Synthetic examples (`example.com`, invented companies) | Anything traceable to a real posting you saw |
+
+The test: **would this be true for a different user running different queries?** If yes,
+it is platform behaviour. If it is a fact about one run, it is that person's job search.
+
+This is a privacy rule, not a tidiness one. A public repo under a contributor's own name
+that logs their run output discloses what they are targeting, which employers, and when
+they were looking. It is also easy to do by accident — copying a real row into
+`data/jobs.example.json` to "make the example realistic" leaks a job id and title even if
+the company name is changed. Examples must be fully synthetic.
+
+Aggregate distributions with no employer names and no personal dates are fine and useful.
+
+**Two mechanisms back this up, and they solve different halves of the problem:**
+
+- `local/`, `scratch/` and `notes/` are ignored **wholesale, with no negation rules**.
+  Unlike `data/` and `config/` — which carve out exceptions for tracked templates and
+  examples — nothing dropped in these can leak by accident. Put personal files there and
+  stop thinking about it.
+- `scripts/validate.py` cross-checks every **tracked** file against the identifying
+  fields of your own `config/bio.json` (name, contact, address, social links, school,
+  employers) and fails if any appear. A `.gitignore` cannot catch a leak that is *typed
+  into a public file*; this can. It prints the field name and the file, never the value.
+
+The second is the one that matters. The leak that prompted this rule was content, not a
+misplaced file — every private path was correctly ignored the whole time.
+
+### 5.5 Documentation
 
 - Second person, present tense, plain words. "You" is the job seeker.
 - Every user-facing claim about safety must correspond to an actual instruction in a
@@ -194,7 +236,17 @@ The MVP covers four tier-1 platforms. Both tiers are open for contribution.
 3. Add the slug to `agent_policy.ats_support.tier_1_no_login` in
    `config/bio.template.json`, and to `TIER_1_KNOWN` in `scripts/validate.py`.
 4. Document quirks in `docs/ATS_NOTES.md`; update the tier table in `README.md`.
-5. **Test in `dry_run` against at least three real postings.** Note which in the PR.
+5. **Test in `dry_run` against at least three real postings.** Keep posting identities
+   private; report aggregate coverage and synthetic scenarios in the PR.
+
+> **Route on the vendor, never the host.** `ats` is the underlying vendor; `ats_host`
+> is the domain landed on. A white-label domain wrapping Greenhouse is applyable by the
+> tier-1 Greenhouse adapter — an adapter that matches on hostname alone will silently
+> skip a large share of real postings.
+
+> **`apply_shape` is orthogonal to tier.** Tier answers "what does it take to reach the
+> form"; shape answers "is it a form at all". A conversational apply is never attempted
+> regardless of tier, because the §7 safeguards all assume a readable field list.
 
 ### 6.2 Tier 2 — session-based
 
@@ -222,7 +274,10 @@ before starting; several of these are unsolved and worth an issue first.
 
 ## 7. Testing
 
-There is no unit-test suite for prompt behavior; the tests are structured manual runs.
+Run `python -m unittest discover -s tests -v` for offline validator regressions, and
+`python scripts/validate.py` for configuration and Git privacy checks. CI runs both
+on Windows and Linux with Python 3.9 and 3.13. Browser behavior still needs structured
+manual dry runs; unit tests do not establish that a live form works.
 
 **Grabber checklist**
 - [ ] An Easy Apply posting is skipped without a click
@@ -236,16 +291,16 @@ There is no unit-test suite for prompt behavior; the tests are structured manual
 
 **Applier checklist**
 - [ ] Preflight fails cleanly on a missing `bio.json` or resume
-- [ ] A required field with no mapping triggers a stop-and-ask
+- [ ] A required field with no mapping follows the configured escalation mode
 - [ ] The review block lists every filled field plus what was left blank
 - [ ] `dry_run: true` refuses to submit even when the human answers `yes`
 - [ ] `skip` and `stop run` do exactly what they say
-- [ ] A post-submit validation error re-runs the **full** review gate
+- [ ] A post-submit validation error re-runs authorization; unknown outcomes never auto-retry
 - [ ] EEO fields remain "Prefer not to say" unless `bio.json` says otherwise
 
 ---
 
 ## 8. When in doubt
 
-Ask the human. This repository's whole thesis is that a five-second question is
-cheaper than a wrong application sent under someone's name.
+For repository development, clarify unresolved intent. For application runs, follow the
+configured escalation mode and authorization policy; never invent a missing answer.

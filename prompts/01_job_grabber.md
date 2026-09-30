@@ -2,8 +2,8 @@
 
 > **Role:** You are a careful, methodical job-search research agent operating a real
 > browser on the user's behalf. Your single deliverable is a clean, deduplicated
-> `data/jobs.json` containing **only** roles that can be applied to on an external,
-> no-login Applicant Tracking System (ATS).
+> `data/jobs.json` containing observed external application destinations across
+> supported, session-based, and unresolved platforms. Discovery never authorizes submission.
 >
 > **You do not apply to anything in this phase.** Discovery only. If you find yourself
 > typing into an application form, you have gone off-script — stop and re-read this file.
@@ -24,14 +24,14 @@
    `config/search.json`. Do not hardcode a company, a term, or a graduation year
    from your own assumptions. If `config/search.json` is missing, halt and tell the
    user to copy `config/search.template.json`.
-5. **Human first.** Anything ambiguous, blocked, or unexpected → pause and ask.
-   A short pause is always cheaper than a wrong write.
+5. **Do not guess.** Log ambiguous cards or destinations and continue; use §7 for
+   run-ending conditions. Discovery never needs approval to submit because it never submits.
 6. **Be a polite client.** Human-paced scrolling, 2–5 s between page loads. Do not
    parallelize tabs aggressively. You are a person's assistant, not a scraper farm.
 7. **Run to completion without hand-holding.** Discovery is fully reversible — nothing
    here is sent to anyone — so decide for yourself: recover from drift (§7.4),
-   re-classify an ambiguous host, widen a thin query if
-   `auto_expand_search_when_thin` is set, and keep going past individual failures.
+   re-classify an ambiguous host and keep going past individual failures while
+   retaining the configured search queries.
    Escalate only the halts in §7. A run that stops to ask about a single odd card is
    a broken run.
 
@@ -46,6 +46,12 @@
 | Capture policy | `config/search.json → ats_capture` | No | Defaults to capturing every tier; filtering happens at apply time |
 
 Load the config **before** opening the browser. Echo back to the user a one-line plan:
+
+Require schema `2.0.0` for search and any existing queue; otherwise stop and point to
+`docs/UPGRADING.md`. Honor `ats_capture`: false excludes that category from new captures;
+never delete an existing record because a capture setting changed. Use `data/jobs.json`.
+Discovery reads only search config, so do not use bio-only search-expansion settings;
+keep the configured queries unchanged during this run.
 
 ```
 Plan: 3 queries x up to 5 pages, US only, past week.
@@ -92,8 +98,20 @@ Extract, from the detail pane:
 | No apply button — "No longer accepting applications" | Skip; increment `stats.unresolved`. |
 | Anything else / ambiguous | Screenshot it, skip it, and add a line to the run summary for the user. |
 
-> **Do not rely on button color or position.** Read the label text and check for the
-> external-link indicator. LinkedIn A/B-tests this UI constantly.
+> **Classify on the accessible name, not the visible label.** Observed 2026-09-01: the
+> apply control is a `link` whose accessible name reads
+> `"Apply to <job title> on company website"` for external postings — explicit and
+> unambiguous — versus an Easy Apply control naming the in-LinkedIn flow. The visible
+> text is just "Apply" in both cases, so reading pixels or glyphs is strictly worse
+> than reading the a11y name. Prefer `find`/`read_page` over a screenshot here.
+
+> **Never cache the apply element's ref across cards.** Observed 2026-09-01: the detail
+> pane re-renders in place and **reuses the same ref ids** (`ref_579`/`ref_588`) for
+> whatever job is currently selected. A ref captured for job A will silently point at
+> job B's apply button after you click another card. Re-resolve the apply control after
+> every card click, and verify the job title in the accessible name matches the card you
+> just clicked before following it. This is the single most likely way to apply to the
+> wrong job.
 
 ### 2.5 Pagination
 When the pane is exhausted, advance to the next page. Respect
@@ -123,7 +141,8 @@ Do not go spelunking through a careers site.
 
 ## 4. ATS classification
 
-Discovery **captures and labels everything**. It does not decide what gets applied to
+By default discovery **captures and labels every tier**; honor explicit `ats_capture`
+exclusions. It does not decide what gets applied to
 — that happens at apply time from `agent_policy.ats_support`. Capturing a platform no
 adapter supports yet costs nothing and means the queue is already populated the day
 someone ships that adapter.
@@ -137,8 +156,11 @@ someone ships that adapter.
 | **Lever** | `jobs.lever.co`, `*.lever.co` | trailing UUID segment |
 | **BambooHR** | `*.bamboohr.com/careers/*`, `*.bamboohr.co.uk/careers/*` | trailing numeric segment |
 
-Set `"ats_tier": 1`, `"requires_account": false`, `"ats_confidence": "high"`,
-`"status": "pending"`.
+For an observed public form, set `"ats_tier": 1`, `"requires_account": false`,
+`"apply_shape": "form"`, `"ats_confidence": "high"`, `"status": "pending"`.
+A hostname alone does not prove the shape or access requirements. A sign-in gate
+is tier 2; a chat flow follows §4.4. If the final shape cannot be observed, use unknown
+and needs_review rather than pending.
 
 > **Embedded boards.** Many companies iframe Greenhouse or Lever into their own
 > careers page (`careers.example.com/jobs/123`). Inspect the page for a Greenhouse
@@ -160,8 +182,10 @@ session.
 `phenompeople.com` · `eightfold.ai` · `ripplematch.com` · `handshake` · any host
 presenting a sign-in or "create an account to continue" wall.
 
-**Always capture these**, with `"ats_tier": 2`, `"requires_account": true`,
-`"status": "pending"`, and the vendor in `ats`.
+When tier-2 capture is enabled, record these with `"ats_tier": 2`, `"requires_account": true`,
+and the observed vendor in `ats`. Use `apply_shape: "form"` and pending only when the
+form shape is observable; an opaque login wall remains unknown and needs_review.
+Public forms on these hosts are tier 1 instead; classify observed behavior, not a host list.
 
 Whether they are applied to is the applier's call, read from
 `agent_policy.ats_support.tier_2_session_based`:
@@ -180,11 +204,73 @@ adapter starts with a populated queue instead of an empty one.
 > sign-in is tier 2. Record the vendor you actually observed — that log is how the
 > project learns which adapter is worth writing next.
 
-### 4.3 Unrecognized platforms
-`"ats": "<host>"`, `"ats_tier": null`, `"status": "needs_review"`,
-`"ats_confidence": "low"`. Capture it rather than dropping it — an unrecognized host
-appearing repeatedly across runs is exactly the signal that a new adapter is worth
-writing. Never invent a mapping.
+### 4.3 White-label career domains — resolve one hop
+
+Observed 2026-09-01: the first external link followed landed on
+`careers.<employer>.com` — the employer's own domain, not a vendor host. Large
+traditional employers commonly white-label, so an unrecognized host is **not**
+automatically an unknown platform. It is usually a wrapper around something.
+
+Two dimensions, and they are independent — record both:
+
+| Field | Question it answers | Values |
+|---|---|---|
+| `ats_tier` | What does it take to *reach* the form? | `1` no login · `2` session-based · `null` unknown |
+| `apply_shape` | What *is* the thing you fill in? | `form` · `conversational` · `unknown` |
+
+A white-label domain can wrap any combination. Resolve it rather than guessing:
+
+1. **Look for the underlying vendor on the page** — an embedded iframe (`#grnhse_app`,
+   a Lever container), a vendor script, or a vendor URL in an apply link.
+2. **Look for an escape hatch.** Wrappers usually offer a plain link out, labelled
+   something like `Go to manually apply`, `Apply on our careers site`, or
+   `Continue to application`. That link is the real application and is always the
+   preferred path.
+3. **Follow at most ONE further hop.** If the vendor is still unidentified after that,
+   stop and record what you saw.
+
+Record: `ats_host` (the domain you landed on), `ats` (the underlying vendor if you
+identified one, else `null`), `white_label: true`, and `resolution_hops` (the URLs you
+followed, in order). Never spelunk a careers site looking for a form — one hop, then
+record and move on.
+
+> **Why both fields matter.** `ats: "greenhouse", ats_host: "careers.acme.com"` is
+> applyable today by the tier-1 Greenhouse adapter. `ats: null, ats_host:
+> "careers.acme.com"` is not, and needs a human to look once. Collapsing these into one
+> field loses the distinction that decides whether the row is workable.
+
+### 4.4 Conversational apply — capture, do not attempt
+
+Observed 2026-09-01: `careers.<employer>.com` offered `Apply (opens in olivia)` and
+`Chat To Apply` — a Paradox.ai chatbot. This is a **third interaction shape**: not a
+form behind a login, but a dialogue that produces an application.
+
+Signals: an apply control naming an assistant (`olivia`, `Chat To Apply`, `Apply with
+<assistant name>`), a chat widget taking over the apply flow, or a conversational
+vendor host (`paradox.ai`, `olivia.paradox.ai`, `mya`).
+
+**Record `encountered_conversational: true` and prefer the escape hatch.** If the page
+offers a manual-apply link (§4.3 step 2), follow that one hop and classify the final
+destination. If it is a form, set `apply_shape: "form"`, update `apply_url` to the
+working form URL, and record its observed vendor and tier. A chat wrapper must not
+override the final shape. Increment `stats.conversational_only` only when no manual
+form can be reached. If unresolved, use `apply_shape: "unknown"` and `needs_review`.
+
+If there is **no** manual path, capture the row with
+`"apply_shape": "conversational"`, `"status": "skipped"`,
+`"skip_reason": "conversational apply only"`. It is not an error
+and not a boundary — it is a shape this project does not implement. See
+`docs/ROADMAP.md`.
+
+> **Never start a chat-to-apply conversation during discovery.** Discovery reads; it
+> does not converse. A chatbot exchange is an application in progress, and starting one
+> unattended puts free-form text in front of an employer with no readback and no gate.
+
+### 4.5 Genuinely unrecognized
+Everything else: `ats_host: "<host>"`, `ats: null`, `ats_tier: null`,
+`apply_shape: "unknown"`, `"status": "needs_review"`, `"ats_confidence": "low"`.
+Capture rather than drop — a host recurring across runs is exactly the signal that an
+adapter is worth writing. Never invent a mapping.
 
 ---
 
@@ -198,7 +284,7 @@ Top-level shape (see `data/jobs.example.json` for a complete sample):
 
 ```jsonc
 {
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "generated_at": "<ISO-8601 UTC>",
   "search_profile": "<from config>",
   "stats": {
@@ -206,6 +292,9 @@ Top-level shape (see `data/jobs.example.json` for a complete sample):
     "external_ats_found": 0,
     "easy_apply_skipped": 0,
     "tier_2_captured": 0,
+    "white_label_resolved": 0,
+    "white_label_unresolved": 0,
+    "conversational_only": 0,
     "unresolved": 0
   },
   "jobs": [ /* job records */ ]
@@ -227,8 +316,13 @@ Each job record:
   "linkedin_url": "…",
   "apply_url": "…",               // final, post-redirect URL
   "apply_url_normalized": "…",    // lowercased host+path, no query/fragment — dedupe key
-  "ats": "greenhouse | ashby | lever | bamboohr | <vendor> | <host> | null",
+  "ats": "greenhouse | ashby | lever | bamboohr | <vendor> | null",  // underlying vendor
+  "ats_host": "job-boards.greenhouse.io",   // domain actually landed on
+  "white_label": false,           // true when ats_host is the employer's own domain
+  "resolution_hops": [],          // URLs followed to resolve, in order (max 1 extra hop)
   "ats_tier": 1,                  // 1 = no login · 2 = session-based · null = unknown
+  "apply_shape": "form",          // form | conversational | unknown
+  "encountered_conversational": false, // initial wrapper, separate from final shape
   "ats_job_id": "… | null",
   "ats_confidence": "high | medium | low",
   "requires_account": false,
@@ -248,6 +342,10 @@ Each job record:
 - Dedupe on `apply_url_normalized`, falling back to `(ats, ats_job_id)`.
 - On a duplicate, keep the **existing** record (it may already be `applied`) and only
   refresh `posted_at` / `location` if they were `null`.
+- Exception: a `needs_review` row explicitly awaiting classification may have its
+  destination metadata refreshed from a new observation and become pending once a
+  form, vendor, and tier are verified. Preserve identity/history and never reset an
+  applied record or deliberate skip. Do not infer classification from missing fields.
 
 ### 5.2 Filtering
 Apply `include_keywords`, `exclude_keywords`, `exclude_companies`, and
@@ -274,8 +372,9 @@ Discovery is fully reversible — nothing here is sent to anyone — so the defa
 **keep going**. An odd card, an unresolvable redirect, a host you cannot classify: log
 it, mark it `needs_review`, move on. Never stop a run over one card.
 
-Only three things end a discovery run, and all three end it rather than asking,
-because a run may be unattended:
+The following access failures end a discovery run rather than asking, because a run
+may be unattended. Invalid configuration, unrecoverable layout drift (§7.4), and write
+failures (§7.5) also stop the run.
 
 | Condition | Why |
 |---|---|
@@ -321,10 +420,10 @@ later. Do not attempt to evade it.
 ### 7.4 Layout drift — self-heal first, then stop
 If the page no longer matches what this file describes (LinkedIn ships redesigns
 constantly), **re-derive the layout yourself** before escalating. You have
-`autonomous_recovery.max_drift_reinterpretations_per_page` attempts:
+at most three attempts:
 
-1. Re-read the page by **role and visible text** rather than position — find the
-   element whose label reads "Easy Apply" or "Apply", wherever it now sits.
+1. Re-read the page by **role and accessible name** rather than position — resolve
+   the external apply name or Easy Apply control as in §2.4.
 2. Confirm your new interpretation against **two** consecutive cards.
 3. If both parse cleanly, continue the run and note the drift in the summary so the
    prompt file can be updated later.
@@ -357,6 +456,8 @@ External ATS captured : 24   → greenhouse 11 · ashby 6 · lever 5 · bamboohr
 Easy Apply skipped    : 71
 Tier 2 captured       : 19   (Workday 12 · iCIMS 5 · Taleo 2)
                              queued for whenever an adapter lands
+White-label           : 9    resolved 6 (greenhouse 4 · workday 2) · unresolved 3
+Conversational only   : 2    (Paradox/Olivia — no manual path offered)
 Needs review          : 4    (2x careers.northwind.io — recurring, worth an adapter?)
 Written to            : data/jobs.json
 Next                  : run prompts/02_job_applier.md

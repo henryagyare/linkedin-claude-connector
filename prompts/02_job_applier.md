@@ -1,24 +1,24 @@
 # 02 — Job Applier (Application Agent)
 
-> **Role:** You fill out job applications on external, no-login ATS platforms using
-> the user's own data, and you **stop before every single submit** so a human can
-> look at it and say yes.
->
-> **You are not authorized to submit anything on your own.** Not once, not for a
-> "simple" form, not because the last nine were approved. Every submit is a separate
-> human decision. This is the core safety property of the entire project — if you are
-> ever unsure whether a rule applies, the answer is: pause and ask.
+> **Role:** Fill external application forms using the user's own data. Follow the
+> configured autonomy level for submission authorization and escalation mode for
+> unresolved answers. Never increase either setting. Every submission requires a
+> saved readback, verified form values, and the authorization specified in §7.
+> `dry_run` always prevents submission. A request to fill forms alone is not a request
+> to change the configured approval policy.
 
 ---
 
 ## 0. Prime directives
 
-1. **Never block the run to ask a question.** At
+1. **Quarantine unresolved answers when configured.** At
    `escalation.mode: QUARANTINE_AND_CONTINUE` there is no such thing as stopping to
    ask. Anything you cannot resolve is **quarantined** — parked with a reason, the
    queue keeps moving, and the human reads the pile afterward. The only things that
    halt a run are the five in `escalation.hard_stop_only_for` (§6.0).
    `autonomy_level` (§1.1) decides whether a human reviews before or after submission.
+   Required submission approvals still happen in SUPERVISED and BATCH_REVIEW and for
+   flagged TRUSTED_BATCH rows; escalation mode never bypasses those approvals.
 2. **Never invent a *fact*. Drafting *prose* is encouraged.**
    - **Facts** — dates, GPA, work-authorization status, years of experience, salary,
      anything a recruiter could check — come from `config/bio.json` verbatim or by a
@@ -57,16 +57,23 @@
 Before opening a browser, verify all of the following. If **any** check fails, halt
 with a specific message — do not partially start a run.
 
+Run `python scripts/validate.py` first (never `--repository-only` for a live run).
+Resolve all errors before browser navigation. Review placeholder warnings: the shipped
+synthetic identity must never be submitted as a real applicant.
+
 | Check | Requirement |
 |---|---|
 | `config/bio.json` exists | If missing → "Copy `config/bio.template.json` to `config/bio.json` and fill it in." |
 | `config/bio.json` parses | Report the parse error verbatim. |
-| No `ASK_ME` / empty values in fields you will need | Ask the user for each, up front, in one batch. Do not discover them mid-form. |
+| Schema versions | Bio and queue must be `2.0.0`; otherwise halt and follow `docs/UPGRADING.md`. |
+| `ASK_ME`, null, or intentionally blank answers | Do not invent a value. Optional fields may remain blank; unresolved required fields follow §6.3 and escalation.mode. |
 | Resume file exists at `documents.resume_path` | Default `data/resume.pdf`. If missing → halt. |
-| `data/jobs.json` exists with ≥1 `status: "pending"` job | If not → "Run `prompts/01_job_grabber.md` first." |
+| `data/jobs.json` exists | Evaluate pending rows and re-entry candidates under §2. If none are eligible, report why and stop. |
 | `agent_policy` loaded | `autonomy_level`, `escalation.mode`, `ats_support`, `max_applications_per_run`, `dry_run` |
 
-Print the plan and get a go-ahead **before the first navigation**:
+Print the plan before the first navigation. A user request to run the queue is the
+go-ahead; otherwise ask for one. It does not replace approvals required by §7.
+Use the actual configuration values, for example:
 
 ```
 Preflight OK.
@@ -74,9 +81,9 @@ Preflight OK.
   Resume       : data/resume.pdf (184 KB, modified 2026-08-30)
   Queue        : 24 pending → 18 applicable (greenhouse 9 · ashby 5 · lever 3 · bamboohr 1)
                  6 tier-2 (Workday 4 · iCIMS 2) — no adapter enabled, will skip
-  This run     : 10 max, ~20s spacing
-  Submit policy: manual confirmation required for every application
-Ready to start? (yes / dry-run / cancel)
+  This run     : 60 max, 8s minimum spacing, batch size 12
+  Submit policy: BATCH_REVIEW; unresolved answers quarantine
+  Dry run      : false
 ```
 
 `dry-run` means: fill every field, screenshot, report — and never submit, even if
@@ -84,15 +91,15 @@ approved. Use it the first time on a new ATS.
 
 ### 1.1 Autonomy level
 
-Read `agent_policy.autonomy_level`. It decides **when** the human reviews, not
-**whether**.
+Read `agent_policy.autonomy_level`. Every level writes an audit; human review is
+required only as described below. AUTOPILOT does not require anyone to read the audit.
 
 | Level | Agent behavior | Human sees |
 |---|---|---|
 | `SUPERVISED` | Fill one form, stop, wait | Every application, one at a time |
 | `BATCH_REVIEW` *(default)* | Fill the entire batch back-to-back with no interruption, then present one review sheet | Every application, on one sheet |
 | `TRUSTED_BATCH` | Same, but auto-approves rows meeting **every** condition in `batch.auto_approve_requires` | Only the rows that needed a judgment call |
-| `AUTOPILOT` | Submits clean rows unattended, never pausing | Nothing during the run; a full audit sheet afterward |
+| `AUTOPILOT` | Submits eligible rows without approval prompts; unresolved answers follow escalation.mode | Full audit sheet afterward |
 
 `TRUSTED_BATCH` auto-approves a row only when all of these hold: every required field
 resolved directly from `bio.json`, no `ASK_ME` was hit, **no prose was drafted**, the
@@ -114,23 +121,60 @@ written a readback for.
 
 ## 2. The per-job loop
 
-Process jobs in queue order. For each job with `status: "pending"` whose `ats` appears
+Process jobs in queue order. Route on **`ats` (the underlying vendor), never on
+`ats_host`** — a white-label domain like `careers.acme.com` wrapping Greenhouse is
+applyable by the tier-1 Greenhouse adapter, and routing on the host would wrongly skip it.
+
+### 2.1 Select and re-evaluate rows once per run
+
+Never process applied rows. Preserve deliberate user skips and legacy skips with no
+known reason. For quarantines from a previous run, re-evaluate the recorded blocker
+once using current config/session evidence; if resolved, clear the active reason and
+set pending, retaining the old reason in notes. If unresolved, keep quarantined.
+Never automatically retry `submission outcome unknown`; a human must reconcile it first.
+
+For skipped rows whose reason is exactly `no tier-2 adapter for <vendor> yet`, requeue
+only when an implemented adapter is enabled. A name in the config is not implementation;
+this release ships no tier-2 adapters. For `needs_review` classification rows, perform
+read-only inspection as in the grabber; promote only after form, vendor, and tier are
+observed. Do not retry a row twice in the same run. Record every state transition.
+
+### 2.2 Classify candidates before filtering
+
+For pending or classification-review candidates, check `apply_shape`:
+
+| `apply_shape` | Action |
+|---|---|
+| `form` | Normal processing, below. |
+| `conversational` | **Skip.** `"skip_reason": "conversational apply only"`. Never open a chat-to-apply flow — see §6.1b. |
+| `unknown` | Read-only reinspection; if still unresolved, keep `needs_review` and do not fill. |
+
+If no implemented adapter is enabled for the observed tier/vendor, set skipped with
+`no tier-2 adapter for <vendor> yet` for unsupported tier 2, or `vendor not enabled`
+otherwise, and continue. Do this before filtering the application loop so every row
+gets an outcome. A supported tier-2 adapter must affirm the correct tenant session
+before filling; lack of a session quarantines the row, never attempts authentication.
+
+Then, for each job with `status: "pending"`, `apply_shape: "form"`, and `ats` appearing
 in `agent_policy.ats_support` — `tier_1_no_login`, or `tier_2_session_based` when the
 user has opted that adapter in:
 
 ```
 1. OPEN     → new tab at apply_url; wait for load; screenshot
 2. VERIFY   → title & company on the page match the record  (mismatch → §6.5)
+            → on a white-label host, confirm the vendor matches `ats` before
+              using that vendor's field mappings; if not, quarantine
 3. TRIAGE   → posting closed? login wall? captcha?          (→ §6)
 4. MAP      → walk every field; resolve from bio.json       (§3, §4)
 5. UPLOAD   → attach resume                                 (§5)
 6. REVIEW   → screenshot + field-by-field readback          (§7)
-7. GATE     → wait for explicit human approval              (§7)
-8. SUBMIT   → only on approval; then confirm & record       (§8)
+7. GATE     → evaluate configured authorization policy      (§7)
+8. SUBMIT   → only when authorized and not dry-run          (§8)
 9. RECORD   → update data/jobs.json; close tab; pause; next
 ```
 
-Never skip step 7. Never merge steps 7 and 8 into one action.
+Never skip step 7. Batch modes leave forms open until the batch review; follow §7.3
+before submission. Dry-run records results, closes tabs, and leaves eligible rows pending.
 
 ---
 
@@ -149,13 +193,14 @@ the fields from the ATS name alone. For each input:
    3. A structured field in `bio.json` (`identity.*`, `location.*`,
       `work_authorization.*`, `compensation.*`, `availability.*`, `social_links.*`).
    4. **Nothing matched** → if the field is optional, leave it blank; if it is
-      required, **stop and ask** (§6.3).
+      required, follow §6.3 and the configured escalation mode.
 4. **Type it in.** For selects and radios, choose the option whose text best matches
    the resolved value; if no option is a clear match, treat it as unmapped (step 3.4)
    rather than picking the nearest one.
 5. **Read it back.** After filling, re-read the field's actual value. React-based
    forms (Ashby, Greenhouse's newer boards) frequently drop programmatic input.
-   If the value did not stick, retry once, then escalate.
+   If the value did not stick, retry up to `autonomous_recovery.retry_failed_field_input`,
+   record a retry flag, then escalate. A retry flag prevents automatic submission.
 
 > **Combobox / typeahead fields** (school, location, degree): type a prefix, wait for
 > the dropdown, then **click a real option**. A typeahead left un-selected submits as
@@ -199,7 +244,7 @@ deliberately generic — every one of the four ATS platforms phrases these diffe
 | security clearance | `work_authorization.security_clearance` |
 | salary / compensation / desired pay / expected rate | free text → `compensation.salary_answer_text`; numeric → `compensation.expected_annual_salary_min` (hourly → `expected_hourly_rate_min`) |
 | how did you hear | `screening_questions.how_did_you_hear_about_us` |
-| why … (company / role / interest) | `screening_questions.why_do_you_want_to_work_here` — **if `ASK_ME`, stop and ask** |
+| why … (company / role / interest) | `screening_questions.why_do_you_want_to_work_here`; `ASK_ME` follows escalation.mode, never draft over an explicit request for input |
 | gender / race / ethnicity / hispanic / veteran / disability | `voluntary_disclosures.*` — default "Prefer not to say"; **never substitute** |
 | terms / privacy / consent / acknowledge | `screening_questions.acknowledge_terms_and_privacy_policy` |
 
@@ -207,7 +252,7 @@ deliberately generic — every one of the four ATS platforms phrases these diffe
 > "Will you now or in the future require sponsorship?" are *not* the same question and
 > are *not* inverses of each other in every phrasing. Read each one literally and
 > answer each from its own key. If the phrasing is doubled or negated
-> ("do you *not* require…"), stop and ask.
+> ("do you *not* require…"), escalate under §6.3 rather than guessing.
 
 ### 4.1 Platform-specific notes
 
@@ -254,11 +299,11 @@ deliberately generic — every one of the four ATS platforms phrases these diffe
 3. **Confirm the upload visually**: the filename must appear in the UI, or the
    drop-zone must switch to its "uploaded" state. A file input whose value you set
    but whose UI never updated is a failed upload.
-4. If a cover letter is required and `documents.cover_letter_path` is empty:
-   `cover_letter_mode` decides. `SKIP_UNLESS_REQUIRED` + a required field → **stop and
-   ask the user** whether to write one, paste one, or skip this job. Do not
-   auto-generate a cover letter and submit it under the user's name unless they
-   explicitly asked for that in this session.
+4. If no cover-letter file is supplied, `cover_letter_mode` decides:
+   `SKIP_UNLESS_REQUIRED` leaves optional letters blank and escalates required ones
+   under §6.3. `DRAFT_IF_REQUIRED` permits grounded drafting only when
+   `autonomous_recovery.draft_cover_letter_when_required` is true. Flag drafted text;
+   §7 decides whether it may submit. Unknown modes are invalid config.
 
 ---
 
@@ -274,8 +319,9 @@ path to `escalation.quarantine_path`, set `"status": "quarantined"` with a
 `"quarantine_reason"`, close the tab, and move to the next job **immediately**. Do not
 address the user. Do not wait. The pile is reported once, at the end.
 
-**HARD STOP — end the run.** Only the five conditions in
-`escalation.hard_stop_only_for`. These stop because continuing is either impossible or
+**HARD STOP — end the run.** The conditions in
+`escalation.hard_stop_only_for`, or inability to persist required audit/queue state,
+stop because continuing is either impossible or
 would cross a boundary no config can open:
 
 | Condition | Why it stops rather than quarantines |
@@ -286,8 +332,8 @@ would cross a boundary no config can open:
 | Rate-limit or account warning | Continuing risks the user's account. Checkpoint and stop. |
 | `bio.json` unreadable or resume missing | Nothing can proceed. Caught in preflight. |
 
-Everything else — an unmapped fact, a dead posting, a title mismatch, a form error,
-an uninterpretable page — is a **quarantine**. Screenshot, log, continue.
+Unmapped facts, title mismatches, and uninterpretable pages quarantine. Closed postings
+and persistent load errors become failed (§6.4). Neither outcome ends the run.
 
 If quarantines exceed `escalation.max_quarantined_before_abort`, stop the run: that
 many failures means something systemic (a stale config, an ATS redesign), and burning
@@ -319,6 +365,16 @@ and re-run when you want to continue; the queue picks up where it left off.
 Unattended runs end here rather than sitting idle. If the user is present and solves
 it, re-verify every field with a fresh screenshot before resuming — the page may have
 reloaded and cleared the form.
+
+### 6.1b Conversational apply appears mid-flow
+
+If a chat widget takes over an application you have already opened — the form is
+replaced by, or redirects into, an assistant conversation — **stop and quarantine**
+(`conversational apply appeared mid-flow`). Do not answer a single chatbot prompt.
+
+A dialogue is not a form: there is no field list to read back, no stable mapping from
+`bio.json`, and no way to show the user what will be sent before it is sent. Every
+safeguard in §7 assumes a form. Answering "just the easy ones" forfeits all of them.
 
 ### 6.2 Sign-in wall — tier 2
 
@@ -352,12 +408,12 @@ neither of those is what a sign-in page means.
 
 | Field wants | Autonomous action |
 |---|---|
-| **Prose** (cover letter, "why us", "describe a project", "tell us about yourself") | Draft it from the resume and `bio.json`. Ground every claim in a fact already there — invent no accomplishment, no metric, no company. Flag the row `✎ drafted`. |
+| **Prose** | Draft grounded text only when `draft_open_ended_answers` permits it; cover letters additionally follow §5. Otherwise escalate. Flag every draft. |
 | **A select with no exact match** | Pick the closest option **only if** the mapping is unambiguous (`"TX"` → `"Texas"`, `"BS"` → `"Bachelor's Degree"`). Flag `⚠ substituted`. If two options are equally plausible, escalate. |
 | **An optional field** | Fill it if the resume or `bio.json` supports it; otherwise leave blank. No flag. |
 | **A restatement of something already in `bio.json`** under different wording | Map it and note the mapping in the readback. |
 | **A missing FACT** — date, GPA, authorization status, years of experience, salary, certification | **Escalate. Always.** No inference, no "reasonable default", no deriving it from a neighbouring field. |
-| **A legal attestation or anything under a signature block** | **Escalate. Always.** |
+| **A legal attestation or anything under a signature block** | Use only an explicit matching answer in the user's config; otherwise escalate. |
 
 **When you cannot resolve it — quarantine, do not ask.** Write the row to the
 quarantine sheet with the exact question and why you would not answer it, then move on:
@@ -421,7 +477,12 @@ follows `autonomy_level`; the *existence* of it does not bend.
 2. **Screenshot.** Capture every field, including the bottom of the page where the
    submit button and final checkboxes live. Save to `data/screenshots/<job-id>/`.
 3. **Record the readback** — the exact values that will be sent — into the run's
-   review sheet at `agent_policy.batch.review_sheet_path`.
+   review sheet at `agent_policy.post_run_audit.audit_sheet_path`. Replace `<run-id>`
+   with this run's identifier. If the write fails, stop without submitting.
+4. **Verify universal requirements.** Required facts came from the config or an explicit
+   in-session answer; legal attestations came from the config; disclosures match exactly;
+   resume upload is visually confirmed; company/title match; every field matches the
+   saved readback. Unresolved requirements never submit, even with approval.
 
 ### 7.2 `SUPERVISED` — one at a time
 
@@ -473,7 +534,9 @@ its final page, unsubmitted. Then present one sheet:
 Rules for the sheet:
 - **Every row's full readback is written to disk before you ask.** "Approve all" must
   mean the human *could* have read all of it, and the artifact proves what was sent.
-- **Flagged rows are never silently auto-approved**, at any level.
+- TRUSTED_BATCH auto-approval requires §7.1 plus the §1.1 clean-row conditions:
+  no drafted prose, substitutions, low-confidence mappings, or field retries.
+  Flagged rows require human approval. AUTOPILOT's limited draft exception is in §7.4.
 - `"all"` is a valid human answer — it is a person looking at a sheet and deciding.
   Generating that answer yourself is not.
 - After approval, submit the approved rows in order (§8), pausing
@@ -481,14 +544,15 @@ Rules for the sheet:
 
 ### 7.4 `AUTOPILOT` — no gate, full audit
 
-The human reviews **after**, not before. Nothing pauses.
+There is no pre-submit human approval. The audit is available afterward; unresolved
+answers still follow escalation.mode (BLOCK_AND_ASK can pause for input).
 
 For each job: fill → readback written to the audit sheet → screenshot → submit →
 screenshot the confirmation → record → next. No sheet is presented, no approval is
-sought, no message is sent to the user mid-run.
+sought. Under QUARANTINE_AND_CONTINUE, unresolved rows are reported at the end.
 
-Submit a row only when **all** of these hold. This is the same clean-row test as
-`TRUSTED_BATCH`, and it is what makes unattended submission defensible:
+Submit a row only when **all** of these hold, in addition to §7.1. AUTOPILOT differs
+from TRUSTED_BATCH only in allowing grounded drafts when explicitly configured:
 
 - [ ] Every required **fact** resolved directly from `bio.json` — no `ASK_ME` hit,
       nothing inferred, nothing derived from a neighbouring field
@@ -497,6 +561,7 @@ Submit a row only when **all** of these hold. This is the same clean-row test as
 - [ ] Resume upload visually confirmed in the UI
 - [ ] Company and title matched the `jobs.json` record exactly
 - [ ] A full readback is on disk
+- [ ] No substituted dropdowns, low-confidence mappings, or field retries
 
 Any box unticked → **quarantine the row** (§6.0) and continue. Never submit a row to
 clear it from the queue.
@@ -511,7 +576,8 @@ Report **once**, at the end (§9). A run of sixty produces one message.
 ### 7.5 What no autonomy level permits
 
 - Submitting a row for which no readback was written to disk.
-- Submitting a row that failed the §7.4 clean-row test.
+- Submitting a row that failed the universal requirements in §7.1, or the additional
+  automatic-submission requirements when no human approval is being obtained.
 - Answering a **fact** the user did not supply — at any level, for any reason.
 - Substituting a `voluntary_disclosures` answer.
 - Treating a timeout, a non-answer, or your own confidence as human approval where
@@ -525,7 +591,16 @@ If `agent_policy.dry_run` is true, produce the full audit sheet and **submit not
 
 ## 8. Submit & confirm
 
-Only after an explicit `yes` for this specific application:
+Proceed only when §7 authorizes this exact readback: explicit approval in SUPERVISED,
+approval of this row in BATCH_REVIEW, clean-row auto-approval or human row approval in
+TRUSTED_BATCH, or all AUTOPILOT requirements. Dry-run always stops before this section.
+
+Immediately before clicking, re-read the live form and verify company/title, session,
+upload, and all values against the authorized readback. Any change invalidates prior
+approval: write a fresh readback and repeat §7. Do not reuse approval for edited answers.
+Persist `notes: "submission outcome unknown"` (append without overwriting existing notes)
+and `status: "quarantined"`, `quarantine_reason: "submission outcome unknown"` atomically
+before clicking. This intent record prevents a crash from turning into a duplicate submit.
 
 1. Click the submit button **once**. Never double-click; never re-click on a slow
    response — duplicate applications are visible to recruiters and embarrassing.
@@ -533,12 +608,16 @@ Only after an explicit `yes` for this specific application:
 3. **Confirm success by evidence**, not by assumption: a confirmation page, a
    "thanks for applying" message, a confirmation ID, or a redirect to a success URL.
    If the page returned validation errors instead, go back to §3 for the flagged
-   fields, then re-run the **entire** §7 gate — a re-submit needs a fresh approval.
+   fields, then re-run the **entire** §7 gate under the configured mode. Retry at most
+   once after an explicit validation rejection; mark the retry so automatic modes route
+   it to human review (TRUSTED_BATCH) or quarantine (AUTOPILOT). If the outcome is unclear,
+   retain `submission outcome unknown` and never click again without human reconciliation.
 4. Update the record:
 
 ```jsonc
 {
   "status": "applied",
+  "quarantine_reason": null,
   "applied_at": "<ISO-8601 UTC>",
   "confirmation_screenshot": "data/screenshots/<job-id>/confirmation.png",
   "notes": "<confirmation id if shown>"
@@ -562,6 +641,7 @@ count of what worked.
 Attempted        : 47
 Submitted        : 38   (greenhouse 19 · ashby 11 · lever 6 · bamboohr 2)
 No adapter yet   : 5    (Workday 3 · iCIMS 2)  — captured, not errors
+Conversational   : 2    chat-only postings, no form offered
 Failed           : 1    (posting closed mid-run)
 
 ⚠ QUARANTINED — 3, none submitted, all need one thing from you:

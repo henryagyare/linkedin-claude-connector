@@ -85,3 +85,55 @@ Classify by observed behavior per posting, not by hostname.
 Classification is by **behavior**, not hostname alone: if the first thing a page asks
 for is a sign-in, treat it as tier 2 regardless of vendor, and record the vendor you
 observed — that log is how the project learns which adapter to write next.
+
+---
+
+## LinkedIn results-pane mechanics
+
+Observed September 2026. Platform behaviour, not the output of any particular search —
+these hold for anyone running discovery.
+
+**Classify the apply control on its accessible name.** The visible label is just
+"Apply" for both external and Easy Apply postings, but the accessible name is explicit:
+`"Apply to <job title> on company website"` for external. Read the a11y tree; do not
+classify from a screenshot, visible text, or the external-link glyph.
+
+**Never cache the apply element's ref across cards.** The detail pane re-renders in
+place and **reuses ref ids** — the same ref points at whichever job is currently
+selected. A ref captured for job A silently becomes job B's apply control after another
+card is clicked. Re-resolve after every click, and check the job title inside the
+accessible name against the card you clicked. This is the most likely path to applying
+to the wrong posting.
+
+**White-label career domains are common.** "Apply on company website" frequently lands
+on the employer's own domain (`careers.<employer>.com`) rather than a vendor host. That
+is a wrapper, not an unknown platform — resolve one hop to find the board underneath.
+Large traditional employers white-label heavily, so hostname-only classification will
+under-count applyable postings.
+
+**Conversational apply exists as a third shape.** Some career sites offer
+`Apply (opens in <assistant>)` or `Chat To Apply` — a chatbot (Paradox/Olivia, Mya)
+rather than a form. These pages usually also offer a plain
+`Go to manually apply` link, which is the path an adapter should always prefer.
+
+---
+
+## A note on run data
+
+**Findings about a vendor belong here. Findings about your search do not.**
+
+The test: would this observation hold for a different user running different queries? If
+yes, it is platform behaviour and belongs in this file. If it is a fact about *your* run
+— which queries you ran, which employers came back, how many results, when — it belongs
+in `data/`, which is gitignored, and nowhere else.
+
+This matters because a public repo under your own name that logs your run output
+discloses your job search: what you are targeting, which employers, and when you were
+looking. Employer names, LinkedIn job ids, posting titles, and result counts from a real
+run are all run data. Vendor hostname *patterns* (`jobs.ashbyhq.com`), UI mechanics, and
+apply-control behaviour are not.
+
+If you want to contribute a distribution (e.g. "white-label was ~30% of external
+postings across ~200 results"), aggregate counts with no employer names and no dates
+tied to a person are fine and genuinely useful — see `docs/ROADMAP.md`. Per-row data
+never is.
