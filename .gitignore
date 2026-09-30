@@ -101,3 +101,8 @@ desktop.ini
 # === Claude local state =======================================================
 .claude/settings.local.json
 .claude/local/
+
+
+# === Miscellaneous ============================================================
+docs/PR_4_REVIEW.md
+docs/NEXT_STEPS.md
